@@ -1,0 +1,4 @@
+.build/
+PowerFlow.app/
+*.dmg
+.DS_Store
