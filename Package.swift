@@ -23,5 +23,11 @@ let package = Package(
             name: "PowerFlow",
             dependencies: ["PowerFlowCore"]
         ),
+        // Testes XCTest do núcleo. Não tocam no hardware: constroem os
+        // instantâneos à mão, para correrem iguais em qualquer Mac.
+        .testTarget(
+            name: "PowerFlowCoreTests",
+            dependencies: ["PowerFlowCore"]
+        ),
     ]
 )
