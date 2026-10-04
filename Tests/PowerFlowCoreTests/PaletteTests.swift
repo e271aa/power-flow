@@ -1,7 +1,8 @@
 import XCTest
 
 /// Guarda as cores da Fase 3 (E8, E9 e E10). Lê os temas de `powerflow-data.json`,
-/// que é a fonte de verdade, e mede-os com as mesmas fórmulas do `validate_palette.js`: ΔE em OKLab ×100, daltonismo simulado com Machado et al. (2009) a 100 %, contraste WCAG.
+/// que é a fonte de verdade, e mede-os com as mesmas fórmulas do validador de paleta
+/// (`validate_palette.js`): ΔE em OKLab ×100, daltonismo simulado com Machado et al. (2009) a 100 %, contraste WCAG.
 final class PaletteTests: XCTestCase {
     private static let themes = ["light", "dark", "hcLight", "hcDark"]
     private static let root = URL(fileURLWithPath: #filePath)
@@ -12,7 +13,7 @@ final class PaletteTests: XCTestCase {
 
     private func loadThemes() throws -> [String: [String: String]] {
         let url = Self.root.appendingPathComponent(
-            "design-handoff/design/powerflow-data.json")
+            "Tests/PowerFlowCoreTests/Fixtures/powerflow-data.json")
         let json = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any]
         return try XCTUnwrap(json?["themes"] as? [String: [String: String]])
     }

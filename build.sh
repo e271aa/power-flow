@@ -10,7 +10,7 @@ cd "$(dirname "$0")"
 APP_NAME="PowerFlow"
 BUNDLE="${APP_NAME}.app"
 VERSION="2.0"
-ICON_SVG="design-handoff/assets/AppIcon.svg"
+ICON_SVG="brand/AppIcon.svg"
 
 echo "==> A compilar (release)"
 swift build -c release 2>&1 | grep -vE "xcrun:|could not determine XCTest|Source files for target" || true
