@@ -311,3 +311,19 @@ final class AlertMonitorTests: XCTestCase {
         XCTAssertEqual(AppSettings.firstRunDoneKey, "pf.firstRunDone")
     }
 }
+
+/// O passo do «Acima de»: os botões − e + das Definições.
+final class TemperatureStepTests: XCTestCase {
+    func testUmPassoAndaUmGrau() {
+        XCTAssertEqual(AlertSettings.steppedTemperatureLimit(40, by: 1), 41)
+        XCTAssertEqual(AlertSettings.steppedTemperatureLimit(40, by: -1), 39)
+    }
+
+    func testNosExtremosFicaOndeEsta() {
+        XCTAssertEqual(AlertSettings.steppedTemperatureLimit(35, by: -1), 35)
+        XCTAssertEqual(AlertSettings.steppedTemperatureLimit(50, by: 1), 50)
+        // Os dois botões desativam-se nos extremos porque o passo não muda nada.
+        XCTAssertEqual(AlertSettings.steppedTemperatureLimit(36, by: -1), 35)
+        XCTAssertEqual(AlertSettings.steppedTemperatureLimit(49, by: 1), 50)
+    }
+}

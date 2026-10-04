@@ -181,6 +181,9 @@
 "s_al_weak_sub" = "Quando o adaptador impede a carga";
 "s_al_note" = "Som e estilo seguem as definições de Notificações do macOS.";
 "s_al_btn" = "Notificações…";
+"s_sections" = "Secções das Definições";
+"s_al_above_dec" = "Baixar um grau";
+"s_al_above_inc" = "Subir um grau";
 "s_about" = "Sobre";
 "s_version" = "Versão";
 "s_source" = "Código-fonte";

@@ -17,6 +17,11 @@ public struct AlertSettings: Equatable, Sendable {
     /// O passo do «Acima de», em °C.
     public static let temperatureLimits = 35...50
 
+    /// O limite depois de um passo de `delta` °C, sem sair dos extremos.
+    public static func steppedTemperatureLimit(_ limit: Int, by delta: Int) -> Int {
+        min(max(limit + delta, temperatureLimits.lowerBound), temperatureLimits.upperBound)
+    }
+
     public var assist = true
     /// Segundos seguidos de assistência antes de avisar.
     public var assistDelay = 30

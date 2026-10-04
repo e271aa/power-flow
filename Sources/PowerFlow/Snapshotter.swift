@@ -29,6 +29,8 @@ enum Snapshotter {
         var onlyHistory = false
         /// Desenha a janela de Definições, com as preferências guardadas.
         var onlySettings = false
+        /// A aba das Definições a desenhar.
+        var settingsTab: SettingsTab = .general
         /// Desenha o painel como no primeiro arranque, com o cartão.
         var firstRun = false
         /// Onde pôr a leitura por ponteiro do histórico, de 0 (esquerda) a 1.
@@ -93,7 +95,7 @@ enum Snapshotter {
         }
         let content: AnyView
         if options.onlySettings {
-            content = AnyView(SettingsView(hasBattery: snapshot.battery.isPresent))
+            content = AnyView(SettingsView(hasBattery: snapshot.battery.isPresent, tab: options.settingsTab))
         } else if options.onlyHistory {
             content = AnyView(HistorySection(store: history, now: snapshot.timestamp,
                                              forcedPeriod: options.period ?? .twoMinutes,

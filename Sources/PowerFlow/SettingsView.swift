@@ -2,7 +2,24 @@ import AppKit
 import PowerFlowCore
 import SwiftUI
 
-/// A janela de Definições: `Form` agrupado, 540 pt de largura.
+/// As duas abas da janela de Definições.
+enum SettingsTab: String, CaseIterable {
+    case general, alerts
+
+    var titleKey: String {
+        switch self {
+        case .general: "s_general"
+        case .alerts: "s_alerts"
+        }
+    }
+}
+
+/// A janela de Definições: duas abas («Geral» e «Alertas»), cada uma um `Form`
+/// agrupado, 540 pt de largura.
+///
+/// A janela tem a altura da aba mais alta e não muda ao trocar de aba: as duas
+/// páginas ficam empilhadas, só uma à vista. Com um `Form` único a janela media
+/// 1004 pt e não cabia num ecrã de 13".
 ///
 /// O arranque com a sessão não tem chave `pf.*`: lê-se e escreve-se no
 /// `SMAppService`. As outras (`pf.barMode`, `pf.sampleRate`, `pf.alert.*`)
@@ -12,21 +29,54 @@ struct SettingsView: View {
 
     let hasBattery: Bool
 
+    @State private var tab: SettingsTab
     @AppStorage(AppSettings.barModeKey) private var barMode = BarMode.default.rawValue
     @AppStorage(AppSettings.sampleRateKey) private var sampleRate = SampleRate.default.rawValue
 
+    init(hasBattery: Bool, tab: SettingsTab = .general) {
+        self.hasBattery = hasBattery
+        _tab = State(initialValue: tab)
+    }
+
     var body: some View {
-        Form {
-            GeneralSection()
-            BarModeSection(selection: $barMode, hasBattery: hasBattery)
-            MeasureSection(selection: $sampleRate)
-            AlertsSection()
-            AboutSection()
+        VStack(spacing: 0) {
+            Picker(L10n.string("s_sections"), selection: $tab) {
+                ForEach(SettingsTab.allCases, id: \.self) { tab in
+                    Text(L10n.string(tab.titleKey)).tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+            .padding(.top, PFSpace.m)
+
+            ZStack(alignment: .top) {
+                page(.general) {
+                    GeneralSection()
+                    BarModeSection(selection: $barMode, hasBattery: hasBattery)
+                    MeasureSection(selection: $sampleRate)
+                }
+                page(.alerts) {
+                    AlertsSection()
+                    AboutSection()
+                }
+            }
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
         .background(PFColor.win)
         .frame(width: Self.width)
+    }
+
+    /// Uma página. A que não está à vista fica no sítio, para dar a altura à
+    /// janela, mas sem foco, sem cliques e fora do VoiceOver.
+    private func page<Content: View>(_ page: SettingsTab,
+                                     @ViewBuilder content: () -> Content) -> some View {
+        let isVisible = tab == page
+        return Form { content() }
+            .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
+            .opacity(isVisible ? 1 : 0)
+            .disabled(!isVisible)
+            .accessibilityHidden(!isVisible)
     }
 }
 
@@ -221,6 +271,7 @@ private struct MeasureSection: View {
                 .font(PFFont.secondary)
                 .foregroundStyle(PFColor.fg2)
                 .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -256,17 +307,7 @@ private struct AlertsSection: View {
 
             toggle("s_al_temp", isOn: $temperature)
             dependent("s_al_above", enabled: temperature) {
-                HStack(spacing: PFSpace.s) {
-                    // Com o alerta desligado o valor esbate-se com o passo ao lado.
-                    Text(PFFormat(locale: L10n.locale).celsius(Double(temperatureLimit), decimals: 0))
-                        .font(PFFont.body)
-                        .monospacedDigit()
-                        .foregroundStyle(temperature ? PFColor.fg : PFColor.fg2)
-                    Stepper(L10n.string("s_al_above"), value: $temperatureLimit,
-                            in: AlertSettings.temperatureLimits, step: 1)
-                        .labelsHidden()
-                }
-                .fixedSize()
+                temperatureStepper
             }
 
             Toggle(isOn: $weakAdapter) {
@@ -295,6 +336,42 @@ private struct AlertsSection: View {
             }
         }
     }
+
+    /// O passo de 1 °C: dois botões de 24 × 24 pt à volta do valor. As setas do
+    /// `Stepper` do sistema medem 11 × 8 pt e não há maneira de as aumentar.
+    private var temperatureStepper: some View {
+        HStack(spacing: PFSpace.s) {
+            stepButton("minus", label: "s_al_above_dec", delta: -1)
+            // Com o alerta desligado o valor esbate-se com os botões ao lado.
+            Text(PFFormat(locale: L10n.locale).celsius(Double(temperatureLimit), decimals: 0))
+                .font(PFFont.body)
+                .monospacedDigit()
+                .foregroundStyle(temperature ? PFColor.fg : PFColor.fg2)
+                .frame(minWidth: 52)
+            stepButton("plus", label: "s_al_above_inc", delta: 1)
+        }
+        .fixedSize()
+    }
+
+    private func stepButton(_ symbol: String, label: String, delta: Int) -> some View {
+        let next = AlertSettings.steppedTemperatureLimit(temperatureLimit, by: delta)
+        return Button { temperatureLimit = next } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(PFColor.fg)
+                .frame(width: Self.stepSize, height: Self.stepSize)
+                .background(PFColor.control, in: RoundedRectangle(cornerRadius: PFRadius.button, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: PFRadius.button, style: .continuous)
+                    .strokeBorder(PFColor.nodeBorder, lineWidth: 1))
+                .contentShape(RoundedRectangle(cornerRadius: PFRadius.button, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(next == temperatureLimit)
+        .accessibilityLabel(L10n.string(label))
+    }
+
+    /// O lado dos botões do passo: o mínimo de 24 pt da área de clique (D7d).
+    private static let stepSize: CGFloat = 24
 
     private func toggle(_ key: String, isOn: Binding<Bool>) -> some View {
         Toggle(L10n.string(key), isOn: isOn)
@@ -354,6 +431,8 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
     weak var monitor: PowerMonitor?
     /// Fixa se o Mac tem bateria, sem monitor (`--window --view settings --state`).
     var hasBatteryOverride: Bool?
+    /// A aba com que a janela abre (`--settings-tab`).
+    var initialTab: SettingsTab = .general
 
     func show() {
         if window == nil { window = makeWindow() }
@@ -366,7 +445,8 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
         // O `Form` não tem altura própria que o controlador de vista leve à
         // janela (saía só com a barra de título): mede-se na vista e fixa-se.
         let hosting = NSHostingView(rootView: SettingsView(hasBattery: hasBatteryOverride
-                                                           ?? monitor?.snapshot.battery.isPresent ?? true))
+                                                           ?? monitor?.snapshot.battery.isPresent ?? true,
+                                                           tab: initialTab))
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: hosting.fittingSize),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.contentView = hosting

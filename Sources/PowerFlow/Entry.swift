@@ -109,6 +109,14 @@ enum Entry {
                 }
                 options.route = route
             }
+            if let name = value(after: "--settings-tab") {
+                guard let tab = SettingsTab(rawValue: name) else {
+                    print("Aba desconhecida: \(name). Abas: "
+                        + SettingsTab.allCases.map(\.rawValue).joined(separator: ", "))
+                    exit(2)
+                }
+                options.settingsTab = tab
+            }
             options.isFresh = arguments.contains("--fresh")
             options.firstRun = arguments.contains("--first-run")
             options.pointer = value(after: "--pointer").flatMap(Double.init)
@@ -170,6 +178,9 @@ enum Entry {
                     } else if let route = Snapshotter.routes[name] {
                         delegate.options.route = route
                     }
+                }
+                if let name = value(after: "--settings-tab"), let tab = SettingsTab(rawValue: name) {
+                    SettingsWindow.shared.initialTab = tab
                 }
                 delegate.options.firstRun = arguments.contains("--first-run")
                 if let folder = value(after: "--focus-walk") {

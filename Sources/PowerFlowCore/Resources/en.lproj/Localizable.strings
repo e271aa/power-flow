@@ -181,6 +181,9 @@
 "s_al_weak_sub" = "When the adapter prevents charging";
 "s_al_note" = "Sound and style follow macOS Notifications settings.";
 "s_al_btn" = "Notifications…";
+"s_sections" = "Settings sections";
+"s_al_above_dec" = "Lower by one degree";
+"s_al_above_inc" = "Raise by one degree";
 "s_about" = "About";
 "s_version" = "Version";
 "s_source" = "Source code";
