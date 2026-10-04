@@ -10,14 +10,43 @@ public struct PFFormat {
     public init(locale: Locale = L10n.locale) { self.locale = locale }
 
     private func number(_ value: Double, decimals: Int, grouping: Bool = false) -> String {
-        let f = NumberFormatter()
-        f.locale = locale
-        f.numberStyle = .decimal
-        f.minimumFractionDigits = decimals
-        f.maximumFractionDigits = decimals
-        f.usesGroupingSeparator = grouping
-        return f.string(from: NSNumber(value: value)) ?? String(value)
+        Self.formatters.string(value, locale: locale, decimals: decimals, grouping: grouping)
     }
+
+    /// Um `NumberFormatter` por locale, casas e agrupamento, criado uma vez.
+    /// Criá-lo a cada número custava, com o `L10n`, 0,4 pontos de CPU com o
+    /// painel aberto (Fase 11). O formatador não é seguro entre fios: o
+    /// cadeado cobre também o uso.
+    private final class Formatters: @unchecked Sendable {
+        private struct Key: Hashable {
+            let locale: String
+            let decimals: Int
+            let grouping: Bool
+        }
+
+        private let lock = NSLock()
+        private var cache: [Key: NumberFormatter] = [:]
+
+        func string(_ value: Double, locale: Locale, decimals: Int, grouping: Bool) -> String {
+            lock.lock(); defer { lock.unlock() }
+            let key = Key(locale: locale.identifier, decimals: decimals, grouping: grouping)
+            let f: NumberFormatter
+            if let cached = cache[key] {
+                f = cached
+            } else {
+                f = NumberFormatter()
+                f.locale = locale
+                f.numberStyle = .decimal
+                f.minimumFractionDigits = decimals
+                f.maximumFractionDigits = decimals
+                f.usesGroupingSeparator = grouping
+                cache[key] = f
+            }
+            return f.string(from: NSNumber(value: value)) ?? String(value)
+        }
+    }
+
+    private static let formatters = Formatters()
 
     private func withUnit(_ text: String, _ unit: String) -> String { text + Self.nbsp + unit }
 

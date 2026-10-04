@@ -34,6 +34,10 @@ public struct PowerSnapshot: Sendable {
     /// Segundos que faltam para `isSettled`. Zero depois de estabilizar.
     public var settleRemaining: Double = 0
 
+    /// Arestas já abaixo do limiar que o diagrama ainda mostra acesas, à
+    /// espera de 1 s de estabilidade (`EdgeHold`).
+    public var heldEdges: Set<FlowEdgeKind> = []
+
     public init() {}
 
     /// Um Mac sem bateria está sempre ligado à corrente. Sem esta guarda, a

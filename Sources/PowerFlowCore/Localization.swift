@@ -9,7 +9,48 @@ import Foundation
 /// força-a na linha de comandos).
 public enum L10n {
     /// Para os testes e para forçar uma língua. `nil`: a do sistema.
-    public nonisolated(unsafe) static var languageOverride: [String]?
+    public nonisolated(unsafe) static var languageOverride: [String]? {
+        didSet { cache.reset() }
+    }
+
+    /// A língua e as tabelas, guardadas. Procurá-las a cada texto custava
+    /// 0,4 pontos de CPU com o painel aberto (Fase 11, `sample` de 10 s).
+    private final class Cache: @unchecked Sendable {
+        private let lock = NSLock()
+        private var language: String?
+        private var tables: [String: Bundle] = [:]
+        private var observer: NSObjectProtocol?
+
+        init() {
+            // A língua do sistema pode mudar com a app aberta.
+            observer = NotificationCenter.default.addObserver(
+                forName: NSLocale.currentLocaleDidChangeNotification, object: nil, queue: nil
+            ) { [weak self] _ in self?.reset() }
+        }
+
+        func reset() {
+            lock.lock(); defer { lock.unlock() }
+            language = nil
+        }
+
+        func language(_ make: () -> String) -> String {
+            lock.lock(); defer { lock.unlock() }
+            if let language { return language }
+            let fresh = make()
+            language = fresh
+            return fresh
+        }
+
+        func table(for language: String, _ make: () -> Bundle) -> Bundle {
+            lock.lock(); defer { lock.unlock() }
+            if let table = tables[language] { return table }
+            let fresh = make()
+            tables[language] = fresh
+            return fresh
+        }
+    }
+
+    private static let cache = Cache()
 
     private static var resources: Bundle {
         Bundle.main.bundleURL.pathExtension == "app" ? Bundle.main : Bundle.module
@@ -20,9 +61,11 @@ public enum L10n {
 
     /// A língua em uso, como nome de `.lproj` («pt-PT», «en»).
     public static var language: String {
-        let preferences = languageOverride ?? Locale.preferredLanguages
-        return Bundle.preferredLocalizations(from: availableLanguages, forPreferences: preferences).first
-            ?? "pt-PT"
+        cache.language {
+            let preferences = languageOverride ?? Locale.preferredLanguages
+            return Bundle.preferredLocalizations(from: availableLanguages, forPreferences: preferences).first
+                ?? "pt-PT"
+        }
     }
 
     public static var locale: Locale { Locale(identifier: language) }
@@ -68,9 +111,11 @@ public enum L10n {
     }
 
     private static func table(for language: String) -> Bundle {
-        guard let path = resources.path(forResource: language, ofType: "lproj"),
-              let bundle = Bundle(path: path) else { return resources }
-        return bundle
+        cache.table(for: language) {
+            guard let path = resources.path(forResource: language, ofType: "lproj"),
+                  let bundle = Bundle(path: path) else { return resources }
+            return bundle
+        }
     }
 
     /// A pasta dos `.lproj` (para o teste de paridade os ler diretamente).

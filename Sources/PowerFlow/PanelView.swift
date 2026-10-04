@@ -12,22 +12,25 @@ struct PanelView: View {
     @Environment(\.forceReduceMotion) private var forceReduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @AppStorage(AppSettings.firstRunDoneKey) private var firstRunDone = false
+    /// O «Percebi» esconde o cartão já, sem esperar que a preferência volte à vista.
+    @State private var firstRunDismissed = false
 
     private var reduceMotion: Bool { systemReduceMotion || forceReduceMotion }
 
     var body: some View {
-        ZStack(alignment: .top) {
-            PanelScreen(route: navigation.route, snapshot: monitor.snapshot, panel: monitor.panel,
+        PanelStack(navigation: navigation, reduceMotion: reduceMotion) { route in
+            PanelScreen(route: route, snapshot: monitor.snapshot, panel: monitor.panel,
                         history: monitor.history, apps: apps.input,
                         open: { navigation.push($0, reduceMotion: reduceMotion) },
                         back: { navigation.pop(animated: true, reduceMotion: reduceMotion) },
-                        firstRun: !firstRunDone,
-                        dismissFirstRun: { firstRunDone = true })
-                .id(navigation.route)
-                .transition(navigation.transition(reduceMotion: reduceMotion))
+                        firstRun: !firstRunDone && !firstRunDismissed,
+                        dismissFirstRun: {
+                            FirstRunCard.dismiss(navigation: navigation, reduceMotion: reduceMotion) {
+                                firstRunDismissed = true
+                                firstRunDone = true
+                            }
+                        })
         }
-        .frame(width: PanelContent.width, alignment: .top)
-        .clipped()
         // Com Reduzir transparência o sistema já tira a translucidez ao popover;
         // o fundo passa a ser o `bg` do tema, como pede o handoff.
         .background(reduceTransparency ? PFColor.bg : Color.clear)
@@ -35,7 +38,6 @@ struct PanelView: View {
         .onChange(of: navigation.route) { route in
             if route == .apps { apps.start(monitor: monitor) } else { apps.stop() }
         }
-        .background { PanelBackShortcuts(navigation: navigation) }
     }
 }
 
@@ -103,6 +105,10 @@ struct PanelContent: View {
     var firstRun = false
     var dismissFirstRun: () -> Void = {}
 
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.forceReduceMotion) private var forceReduceMotion
+    private var reduceMotion: Bool { systemReduceMotion || forceReduceMotion }
+
     static let width: CGFloat = 360
 
     var body: some View {
@@ -120,12 +126,15 @@ struct PanelContent: View {
                     SettlingBar(remaining: snapshot.settleRemaining)
                         .padding(EdgeInsets(top: -4, leading: PFSpace.popoverMargin,
                                             bottom: PFSpace.m, trailing: PFSpace.popoverMargin))
+                        .transition(.opacity)
                 }
 
                 if let banner = copy.banner {
                     PanelBanner(banner: banner)
                         .padding(EdgeInsets(top: 0, leading: PFSpace.popoverMargin,
                                             bottom: PFSpace.m, trailing: PFSpace.popoverMargin))
+                        // Com Reduzir Movimento o resto não se mexe: o aviso só aparece.
+                        .transition(reduceMotion ? .opacity.animation(PFMotion.reducedFade) : .opacity)
                 }
 
                 // Na primeira vez: cabeçalho, cartão e diagrama, e mais nada.
@@ -146,6 +155,10 @@ struct PanelContent: View {
             }
         }
         .frame(width: Self.width, alignment: .leading)
+        // O aviso e a barra de estabilização entram e saem com altura e
+        // opacidade, ao ritmo da altura do painel. Só quando eles mudam.
+        .animation(reduceMotion ? nil : PFMotion.layout, value: panel.banner)
+        .animation(reduceMotion ? nil : PFMotion.layout, value: panel.kind == .settling)
     }
 
     @ViewBuilder private var breakdownAndHistory: some View {
@@ -195,6 +208,9 @@ private struct PanelHeader: View {
                         .monospacedDigit()
                         .kerning(-0.28)
                         .foregroundStyle(copy.isDimmed ? PFColor.fg2 : PFColor.fg)
+                        // No fim da estabilização o número passa de fg2 a fg. Não
+                        // é movimento: fica com Reduzir Movimento.
+                        .animation(PFMotion.settleInk, value: copy.isDimmed)
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilitySortPriority(3)
@@ -408,6 +424,21 @@ struct FirstRunCard: View {
 
     /// Quantos cartões estão à vista. Serve o `--panel-check`.
     @MainActor static var shownCount = 0
+
+    /// Fecha o cartão. Com o rato, o cartão sai e a repartição e o histórico
+    /// entram em 0,25 s, ao ritmo da altura; pelo Return (D7b) ou com Reduzir
+    /// Movimento, de uma vez.
+    @MainActor
+    static func dismiss(navigation: PanelNavigation, reduceMotion: Bool, _ change: () -> Void) {
+        if PanelNavigation.isKeyboardAction || reduceMotion {
+            navigation.changeWithoutAnimation()
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction, change)
+        } else {
+            withAnimation(.easeInOut(duration: PanelHeight.duration), change)
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {

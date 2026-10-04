@@ -22,11 +22,15 @@ final class WindowModeDelegate: NSObject, NSApplicationDelegate {
         /// `--focus-walk <pasta> <n>`: avança n vezes por Tab e desenha a janela
         /// num PNG antes de cada passo, para ver o anel de foco sem capturar o ecrã.
         var focusWalk: (folder: String, steps: Int)?
+        /// `--motion-probe <pasta>`: mede o movimento do painel (`MotionProbe`).
+        var motionProbe: String?
+        var reduceMotion = false
     }
 
     var options = Options()
     private var window: NSWindow?
     private var monitor: PowerMonitor?
+    private var probe: MotionProbe?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         defer {
@@ -39,6 +43,11 @@ final class WindowModeDelegate: NSObject, NSApplicationDelegate {
         if options.settings {
             SettingsWindow.shared.hasBatteryOverride = options.state.map { Snapshotter.fixture($0).0.battery.isPresent }
             SettingsWindow.shared.show()
+            return
+        }
+
+        if let folder = options.motionProbe {
+            startProbe(folder)
             return
         }
 
@@ -65,6 +74,22 @@ final class WindowModeDelegate: NSObject, NSApplicationDelegate {
         window.center()
         window.makeKeyAndOrderFront(nil)
         self.window = window
+    }
+
+    private func startProbe(_ folder: String) {
+        let window = NSWindow(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: false)
+        let probe = MotionProbe(folder: folder, window: window)
+        probe.forceReduceMotion = options.reduceMotion
+        let hosting = NSHostingController(rootView: ProbePanel(feed: probe.feed, navigation: probe.navigation)
+            .environment(\.forceReduceMotion, options.reduceMotion))
+        hosting.sizingOptions = .preferredContentSize
+        window.contentViewController = hosting
+        window.title = "PowerFlow · sonda"
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        self.window = window
+        self.probe = probe
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { probe.run() }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -122,21 +147,20 @@ private struct FixturePanel: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        ZStack(alignment: .top) {
-            PanelScreen(route: navigation.route, snapshot: snapshot,
+        PanelStack(navigation: navigation, reduceMotion: reduceMotion) { route in
+            PanelScreen(route: route, snapshot: snapshot,
                         panel: PanelState(snapshot: snapshot, sensorsAvailable: sensorsAvailable),
                         history: history, apps: apps,
                         open: { navigation.push($0, reduceMotion: reduceMotion) },
                         back: { navigation.pop(animated: true, reduceMotion: reduceMotion) },
                         firstRun: firstRun && !dismissed,
-                        dismissFirstRun: { dismissed = true })
-                .id(navigation.route)
-                .transition(navigation.transition(reduceMotion: reduceMotion))
+                        dismissFirstRun: {
+                            FirstRunCard.dismiss(navigation: navigation, reduceMotion: reduceMotion) {
+                                dismissed = true
+                            }
+                        })
         }
-        .frame(width: PanelContent.width, alignment: .top)
-        .clipped()
         .background(PFColor.bg)
-        .background { PanelBackShortcuts(navigation: navigation) }
         .onAppear {
             if route != .main { navigation.push(route, reduceMotion: true) }
         }

@@ -177,6 +177,8 @@ enum Entry {
                         $0 + 2 < arguments.count ? Int(arguments[$0 + 2]) : nil } ?? 8
                     delegate.options.focusWalk = (folder, steps)
                 }
+                delegate.options.motionProbe = value(after: "--motion-probe")
+                delegate.options.reduceMotion = arguments.contains("--reduce-motion")
                 app.delegate = delegate
                 app.setActivationPolicy(.regular)
                 app.run()

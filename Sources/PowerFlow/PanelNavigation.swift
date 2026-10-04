@@ -1,3 +1,4 @@
+import AppKit
 import PowerFlowCore
 import SwiftUI
 
@@ -15,6 +16,23 @@ final class PanelNavigation: ObservableObject {
     @Published private(set) var route: PanelRoute = .main
     /// Verdadeiro quando a última mudança foi um voltar: a vista sai pela borda oposta.
     private(set) var isGoingBack = false
+    /// Até quando a altura do painel muda sem animar: logo a seguir a uma
+    /// ação do teclado, que não anima (D7b).
+    private var instantUntil = Date.distantPast
+
+    /// Falso logo a seguir a uma ação do teclado.
+    var resizeAnimates: Bool { Date() > instantUntil }
+
+    /// A próxima mudança de altura é de uma ação do teclado: sem animar.
+    func changeWithoutAnimation() {
+        instantUntil = Date() + 0.25
+    }
+
+    /// Verdadeiro quando a ação que está a correr veio do teclado (Return,
+    /// espaço, um atalho), e não de um clique.
+    static var isKeyboardAction: Bool {
+        NSApp.currentEvent?.type == .keyDown
+    }
 
     /// Entra numa vista do nível 2. Vem sempre de um clique, por isso anima.
     func push(_ route: PanelRoute, reduceMotion: Bool) {
@@ -30,6 +48,7 @@ final class PanelNavigation: ObservableObject {
         if animated {
             withAnimation(Self.animation(reduceMotion: reduceMotion)) { route = .main }
         } else {
+            changeWithoutAnimation()
             var transaction = Transaction()
             transaction.disablesAnimations = true
             withTransaction(transaction) { route = .main }

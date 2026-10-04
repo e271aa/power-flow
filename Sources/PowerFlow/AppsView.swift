@@ -20,6 +20,10 @@ struct AppsView: View {
     /// linha não foge de baixo do ponteiro quando chega a média seguinte.
     @State private var frozenOrder: [String]?
 
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.forceReduceMotion) private var forceReduceMotion
+    private var reduceMotion: Bool { systemReduceMotion || forceReduceMotion }
+
     private static let rowHeight: CGFloat = 42
     private static let iconSize: CGFloat = 24
     private static let valueWidth: CGFloat = 60
@@ -36,6 +40,7 @@ struct AppsView: View {
             VStack(alignment: .leading, spacing: 0) {
                 if copy.isWaiting {
                     waiting(copy)
+                        .transition(.opacity)
                 } else {
                     ForEach(copy.rows) { row in
                         appRow(row)
@@ -55,6 +60,12 @@ struct AppsView: View {
             .onHover { inside in
                 frozenOrder = inside ? copy.order : nil
             }
+            // A primeira média chega 1 s depois de entrar: «A medir…» dá lugar
+            // à lista ao ritmo da altura do painel, e não de um salto.
+            .animation(reduceMotion ? nil : PFMotion.layout, value: copy.isWaiting)
+            // Uma app que entra, sai ou muda de lugar (de 5 em 5 s, e nunca com
+            // o rato por cima) desliza para lá, e a altura do painel acompanha.
+            .animation(reduceMotion ? nil : PFMotion.layout, value: copy.order)
 
             VStack(spacing: 0) {
                 Rectangle().fill(PFColor.sep).frame(height: 1)

@@ -28,6 +28,13 @@ final class PowerMonitor: ObservableObject {
     private var snapshotTimer: Timer?
     private var runLoopSource: CFRunLoopSource?
 
+    /// Os números mudam no máximo 2 vezes por segundo: o tique de 1 Hz e o
+    /// aviso do sistema juntos chegaram a publicar três vezes no mesmo segundo.
+    private var gate = PublishGate()
+    private var publishPending = false
+    /// Uma aresta que se apaga espera 1 s de estabilidade.
+    private var edgeHold = EdgeHold()
+
     /// O painel está à vista: é só então que o ritmo das Definições conta.
     private var panelIsOpen = false
     /// O ritmo escolhido nas Definições para o painel aberto.
@@ -97,7 +104,7 @@ final class PowerMonitor: ObservableObject {
         if let source = IOPSNotificationCreateRunLoopSource({ context in
             guard let context else { return }
             let monitor = Unmanaged<PowerMonitor>.fromOpaque(context).takeUnretainedValue()
-            Task { @MainActor in monitor.publish() }
+            Task { @MainActor in monitor.requestPublish() }
         }, context)?.takeRetainedValue() {
             CFRunLoopAddSource(CFRunLoopGetMain(), source, .defaultMode)
             runLoopSource = source
@@ -107,7 +114,23 @@ final class PowerMonitor: ObservableObject {
     /// O passo de 1 Hz: uma leitura para a média lenta e uma publicação.
     private func tick() {
         smoother.addSlow(PowerSampler.sampleRails())
-        publish()
+        requestPublish()
+    }
+
+    /// Publica já, ou assim que passarem 0,5 s desde a última publicação.
+    private func requestPublish() {
+        let wait = gate.wait(at: Date())
+        if wait == 0 {
+            publish()
+        } else if !publishPending {
+            publishPending = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + wait) { [weak self] in
+                MainActor.assumeIsolated {
+                    self?.publishPending = false
+                    self?.publish()
+                }
+            }
+        }
     }
 
     private func publish() {
@@ -122,7 +145,9 @@ final class PowerMonitor: ObservableObject {
         fresh.isSettled = smoother.isSettled
         fresh.settleRemaining = smoother.settleRemaining
         fresh.batteryMagnitude = abs(fresh.battery.voltage * fresh.battery.amperage)
+        fresh.heldEdges = edgeHold.held(for: fresh, at: fresh.timestamp)
 
+        gate.published(at: Date())
         snapshot = fresh
         // Sem leitura do consumo não há ponto: fica uma lacuna, não um zero.
         if let system = fresh.systemTotal {

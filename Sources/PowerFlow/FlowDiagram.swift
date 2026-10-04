@@ -73,8 +73,7 @@ private struct FlowStream: Identifiable {
                         startPoint: curve.p0, endPoint: curve.p3)
     }
 
-    /// As partículas levam as cores de tinta: com as do tubo e do núcleo
-    /// confundiam-se com o núcleo por onde passam.
+    /// As partículas levam as cores de tinta, como nas camadas ao vivo.
     var particleShading: GraphicsContext.Shading {
         .linearGradient(Gradient(colors: [edge.from.ink, edge.to.ink]),
                         startPoint: curve.p0, endPoint: curve.p3)
@@ -103,26 +102,26 @@ struct FlowDiagram: View {
             FlowStream(edge: edge, curve: FlowLayout.curve(edge),
                        flow: EdgeFlow(watts: snapshot.watts(on: edge),
                                       isSuppressed: panel.kind == .settling,
+                                      isHeld: snapshot.heldEdges.contains(edge),
                                       reduceMotion: reduceMotion))
         }
+        let looks = streams.map { EdgeLook(edge: $0.edge, flow: $0.flow) }
 
         ZStack(alignment: .topLeading) {
-            // As arestas só mudam quando chega uma leitura, por isso
-            // desenham-se uma vez por leitura e não por fotograma.
-            Canvas { context, _ in
-                for stream in streams {
-                    drawEdge(stream, in: &context)
-                    if isStaticRender { drawFrozenParticles(stream, in: &context) }
+            // Ao vivo as arestas são camadas do Core Animation, que animam a
+            // espessura e o acender sem a app desenhar fotogramas. Numa imagem
+            // parada desenham-se aqui, com as partículas congeladas.
+            if isStaticRender {
+                Canvas { context, _ in
+                    for stream in streams {
+                        drawEdge(stream, in: &context)
+                        drawFrozenParticles(stream, in: &context)
+                    }
                 }
-            }
-            .accessibilityHidden(true)
-
-            if !isStaticRender {
-                ParticleLayer(streams: streams.filter(\.flow.hasParticles).map {
-                    ParticleStream(edge: $0.edge, diameter: $0.flow.particleDiameter,
-                                   speed: $0.flow.particleSpeed)
-                })
                 .accessibilityHidden(true)
+            } else {
+                FlowLayers(part: .edges, looks: looks, reduceMotion: reduceMotion)
+                    .accessibilityHidden(true)
             }
 
             ForEach(Array(FlowLayout.nodes(hasBattery: panel.showsBattery).enumerated()), id: \.element) { index, node in
@@ -136,14 +135,20 @@ struct FlowDiagram: View {
 
             // Os chevrons e as portas ficam por cima de tudo: as portas tapam
             // o sítio onde a aresta toca no nó.
-            Canvas { context, _ in
-                for stream in streams {
-                    if stream.flow.isActive { drawChevron(stream, in: &context) }
-                    drawPorts(stream, in: &context)
+            if isStaticRender {
+                Canvas { context, _ in
+                    for stream in streams {
+                        if stream.flow.isActive { drawChevron(stream, in: &context) }
+                        drawPorts(stream, in: &context)
+                    }
                 }
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            } else {
+                FlowLayers(part: .marks, looks: looks, reduceMotion: reduceMotion)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
             }
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
 
             ForEach(Array(streams.enumerated()), id: \.element.id) { index, stream in
                 if let label = copy.voFlows[stream.edge] {
@@ -295,6 +300,7 @@ private struct NodeCard: View {
                     .pfType(value.isWord ? .valueWord : .value)
                     .monospacedDigit()
                     .foregroundStyle(value.isWord || isDimmed ? PFColor.fg2 : PFColor.fg)
+                    .animation(PFMotion.settleInk, value: isDimmed)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
             }

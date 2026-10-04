@@ -302,9 +302,9 @@ extension StatusItemController {
         return Self.particleHosts(in: root).flatMap(\.particlePhases)
     }
 
-    private static func particleHosts(in view: NSView) -> [ParticleHostView] {
+    private static func particleHosts(in view: NSView) -> [FlowLayerHost] {
         var found = view.subviews.flatMap { particleHosts(in: $0) }
-        if let host = view as? ParticleHostView { found.append(host) }
+        if let host = view as? FlowLayerHost { found.append(host) }
         return found
     }
 }

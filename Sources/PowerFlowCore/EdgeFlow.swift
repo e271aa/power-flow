@@ -30,9 +30,10 @@ public struct EdgeFlow: Equatable, Sendable {
     public let particleSpeed: Double
 
     /// `isSuppressed`: o painel ainda está a estabilizar e nenhum caudal é de confiança.
-    public init(watts: Double, isSuppressed: Bool = false, reduceMotion: Bool) {
+    /// `isHeld`: já abaixo do limiar, mas fica acesa até passar 1 s (`EdgeHold`).
+    public init(watts: Double, isSuppressed: Bool = false, isHeld: Bool = false, reduceMotion: Bool) {
         self.watts = watts
-        isActive = watts > PanelState.edgeThreshold && !isSuppressed
+        isActive = (watts > PanelState.edgeThreshold || isHeld) && !isSuppressed
 
         let k = sqrt(min(max(watts, 0), Self.fullScale) / Self.fullScale)
         tubeWidth = 2.5 + 9 * k

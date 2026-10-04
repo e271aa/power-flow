@@ -30,7 +30,7 @@ struct HistorySection: View {
                     .foregroundStyle(PFColor.fg)
                     .accessibilityAddTraits(.isHeader)
                 Spacer(minLength: 0)
-                PeriodControl(selection: period, isDayEnabled: dayAvailable) { storedPeriod = $0.rawValue }
+                PeriodControl(selection: period, isDayEnabled: dayAvailable) { select($0) }
                     .fixedSize()
                     .padding(.vertical, -2)
             }
@@ -39,12 +39,15 @@ struct HistorySection: View {
                 series.nearest(to: $0 * Double(series.period.slots - 1))
             })
 
-            if let note = copy.note {
-                Text(note)
-                    .pfType(.minimum)
-                    .foregroundStyle(PFColor.fg2)
-                    .fixedSize(horizontal: false, vertical: true)
+            Group {
+                if let note = copy.note {
+                    Text(note)
+                        .pfType(.minimum)
+                        .foregroundStyle(PFColor.fg2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
+            .animation(nil, value: period)
 
             // Numa linha quando cabe; senão a média desce para a linha de baixo
             // e, se nem assim, cada entrada fica na sua linha. Nada se corta.
@@ -63,6 +66,7 @@ struct HistorySection: View {
                     averageLabel(copy)
                 }
             }
+            .animation(nil, value: period)
         }
         .background {
             // ⌘1, ⌘2 e ⌘3 escolhem o período. Vêm do teclado, por isso não animam.
@@ -114,8 +118,22 @@ struct HistorySection: View {
     }
 
     private func shortcut(_ key: KeyEquivalent, _ period: HistoryPeriod) -> some View {
-        Button("") { storedPeriod = period.rawValue }
+        Button("") { change(to: period, fades: false) }
             .keyboardShortcut(key, modifiers: .command)
+    }
+
+    /// Com o rato, as séries trocam num crossfade de 0,2 s. Pelo teclado (o
+    /// controlo com o foco e o espaço) trocam de uma vez (D7b).
+    private func select(_ period: HistoryPeriod) {
+        change(to: period, fades: !PanelNavigation.isKeyboardAction)
+    }
+
+    private func change(to period: HistoryPeriod, fades: Bool) {
+        if fades {
+            withAnimation(PFMotion.periodFade) { storedPeriod = period.rawValue }
+        } else {
+            storedPeriod = period.rawValue
+        }
     }
 }
 
@@ -210,16 +228,25 @@ struct HistoryChart: View {
         ZStack(alignment: .topLeading) {
             grid
             gaps
+                .animation(nil, value: series.period)
             marks
                 .frame(width: Self.plot.width, height: Self.plot.height)
                 .offset(x: Self.plot.minX, y: Self.plot.minY)
-            axisLabels
-            if let peak = series.peak, let label = copy.peak, hovered == nil {
-                peakMarker(peak, label: label)
+                .id(series.period)
+                // As séries de um período novo entram num crossfade de 0,2 s
+                // (só com o rato: o teclado muda sem animação).
+                .transition(.opacity)
+            // Os eixos, o pico e a leitura não animam com o período.
+            Group {
+                axisLabels
+                if let peak = series.peak, let label = copy.peak, hovered == nil {
+                    peakMarker(peak, label: label)
+                }
+                if let hovered {
+                    readout(for: hovered)
+                }
             }
-            if let hovered {
-                readout(for: hovered)
-            }
+            .animation(nil, value: series.period)
         }
         .frame(width: Self.size.width, height: Self.size.height, alignment: .topLeading)
         .contentShape(Rectangle())
