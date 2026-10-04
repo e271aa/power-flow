@@ -21,35 +21,60 @@ final class PowerMonitor: ObservableObject {
     }
 
     /// Três segundos de média e um de recuo para alinhar a entrada com o
-    /// consumo, a 1 Hz ou a 10 Hz. Ver `DualRateSmoother`.
+    /// consumo, ao ritmo lento ou ao rápido. Ver `DualRateSmoother`.
     private var smoother = DualRateSmoother()
 
     private var railTimer: Timer?
     private var snapshotTimer: Timer?
     private var runLoopSource: CFRunLoopSource?
 
+    /// O painel está à vista: é só então que o ritmo das Definições conta.
+    private var panelIsOpen = false
+    /// O ritmo escolhido nas Definições para o painel aberto.
+    private(set) var sampleRate: SampleRate
+    /// As leituras por segundo do ritmo rápido em curso; `nil` com ele parado.
+    private(set) var fastHz: Int?
+
     var isSamplingFast: Bool { railTimer != nil }
 
     /// `persistsHistory`: lê e grava as 24 h em disco. As ferramentas de linha
     /// de comandos e a janela `--window` ficam só com a memória.
-    init(persistsHistory: Bool = false) {
+    init(persistsHistory: Bool = false, sampleRate: SampleRate = AppSettings.sampleRate()) {
+        self.sampleRate = sampleRate
         history = HistoryStore(fileURL: persistsHistory ? HistoryStore.defaultFileURL : nil)
         isAvailable = SMCCatalog.shared.prepare()
         tick()
         start()
     }
 
-    /// Liga as leituras do SMC a 10 Hz, que alimentam a média do diagrama.
-    /// Só fazem falta com o painel à vista; fechado, a app fica a 1 Hz.
+    /// Liga as leituras do SMC ao ritmo escolhido, que alimentam a média do
+    /// diagrama. Só fazem falta com o painel à vista; fechado, a app fica a 1 Hz.
     func setFastSampling(_ on: Bool) {
-        guard on != isSamplingFast else { return }
-        smoother.setFast(on)
+        panelIsOpen = on
+        applySampling()
+    }
+
+    /// A frequência escolhida nas Definições. Com o painel aberto muda já.
+    func setSampleRate(_ rate: SampleRate) {
+        guard rate != sampleRate else { return }
+        sampleRate = rate
+        applySampling()
+    }
+
+    private func applySampling() {
+        let wanted = panelIsOpen ? sampleRate.fastHz : nil
+        guard wanted != fastHz else { return }
+        fastHz = wanted
         railTimer?.invalidate()
         railTimer = nil
-        guard on else { return }
+        guard let hz = wanted else {
+            smoother.setFast(false)
+            return
+        }
+        smoother.setFast(true, hz: hz)
 
         // São chamadas IOKit diretas e custam praticamente nada.
-        let railTimer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
+        let railTimer = Timer(timeInterval: 1 / Double(hz), repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in self.smoother.addFast(PowerSampler.sampleRails()) }
         }

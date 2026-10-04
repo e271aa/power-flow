@@ -10,11 +10,19 @@ import AppKit
 /// fica preto na barra clara, branco na escura e inverte-se quando o item
 /// está selecionado, sem precisarmos de variantes.
 enum MenuBarIcon {
-    /// - Parameter pluggedIn: com o cabo ligado o nó do adaptador é cheio;
-    ///   em bateria fica vazado, para se ver de relance de onde vem a energia.
-    static func image(pluggedIn: Bool) -> NSImage {
-        let image = rendered(size: NSSize(width: 17, height: 15),
-                             pluggedIn: pluggedIn, color: .black)
+    /// Os três estados do ícone.
+    enum State: CaseIterable {
+        /// Com o cabo ligado o nó do adaptador é cheio.
+        case pluggedIn
+        /// Em bateria o nó do adaptador fica vazado, para se ver de relance de
+        /// onde vem a energia.
+        case onBattery
+        /// Sem leituras dos sensores: os três nós vazados.
+        case unavailable
+    }
+
+    static func image(_ state: State) -> NSImage {
+        let image = rendered(size: NSSize(width: 17, height: 15), state: state, color: .black)
         image.isTemplate = true
         return image
     }
@@ -24,23 +32,24 @@ enum MenuBarIcon {
     /// O isolamento é essencial: o nó vazado abre-se com uma operação de
     /// limpeza, que apagaria o que já estivesse desenhado por baixo se o
     /// desenho fosse feito diretamente sobre outra tela.
-    static func rendered(size: NSSize, pluggedIn: Bool, color: NSColor) -> NSImage {
+    static func rendered(size: NSSize, state: State, color: NSColor) -> NSImage {
         NSImage(size: size, flipped: false) { _ in
-            draw(in: size, pluggedIn: pluggedIn, color: color)
+            draw(in: size, state: state, color: color)
             return true
         }
     }
 
     /// Desenha proporcionalmente ao tamanho pedido, para servir tanto os
     /// 15 pt da barra de menus como as ampliações da pré-visualização.
-    static func draw(in size: NSSize, pluggedIn: Bool, color: NSColor = .black) {
+    static func draw(in size: NSSize, state: State, color: NSColor = .black) {
         let unit = size.height / 15.0
-        let radius = 2.1 * unit
-        let lineWidth = 1.15 * unit
+        let radius = 2.3 * unit
+        let systemRadius = 2.6 * unit
+        let lineWidth = 1.4 * unit
 
         let adapter = NSPoint(x: 3.0 * unit, y: 10.6 * unit)
         let system  = NSPoint(x: 14.0 * unit, y: 10.6 * unit)
-        let battery = NSPoint(x: 8.5 * unit, y: 3.4 * unit)
+        let battery = NSPoint(x: 8.5 * unit, y: 3.6 * unit)
 
         color.setStroke()
         color.setFill()
@@ -58,9 +67,10 @@ enum MenuBarIcon {
         edges.lineJoinStyle = .round
         edges.stroke()
 
-        node(at: system, radius: radius, filled: true, lineWidth: lineWidth)
-        node(at: battery, radius: radius, filled: true, lineWidth: lineWidth)
-        node(at: adapter, radius: radius, filled: pluggedIn, lineWidth: lineWidth)
+        let isUnavailable = state == .unavailable
+        node(at: system, radius: systemRadius, filled: !isUnavailable, lineWidth: lineWidth)
+        node(at: battery, radius: radius, filled: !isUnavailable, lineWidth: lineWidth)
+        node(at: adapter, radius: radius, filled: state == .pluggedIn, lineWidth: lineWidth)
     }
 
     private static func node(at center: NSPoint, radius: CGFloat,

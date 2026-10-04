@@ -9,7 +9,8 @@ cd "$(dirname "$0")"
 
 APP_NAME="PowerFlow"
 BUNDLE="${APP_NAME}.app"
-VERSION="1.0"
+VERSION="2.0"
+ICON_SVG="design-handoff/assets/AppIcon.svg"
 
 echo "==> A compilar (release)"
 swift build -c release 2>&1 | grep -vE "xcrun:|could not determine XCTest|Source files for target" || true
@@ -26,6 +27,19 @@ cp "$BINARY" "${BUNDLE}/Contents/MacOS/${APP_NAME}"
 # Na app lêem-se daqui; em `swift run` e nos testes, do bundle de recursos do SwiftPM.
 cp -R Sources/PowerFlowCore/Resources/*.lproj "${BUNDLE}/Contents/Resources/"
 
+# O ícone da app: o SVG do handoff, exportado nos tamanhos que o `iconutil` pede.
+# Precisa de `rsvg-convert` (brew install librsvg).
+echo "==> A gerar o ícone"
+command -v rsvg-convert >/dev/null || { echo "Falhou: falta o rsvg-convert (brew install librsvg)"; exit 1; }
+ICONSET="$(mktemp -d)/AppIcon.iconset"
+mkdir -p "$ICONSET"
+for size in 16 32 128 256 512; do
+    rsvg-convert -w "$size" -h "$size" "$ICON_SVG" -o "${ICONSET}/icon_${size}x${size}.png"
+    rsvg-convert -w "$((size * 2))" -h "$((size * 2))" "$ICON_SVG" -o "${ICONSET}/icon_${size}x${size}@2x.png"
+done
+iconutil -c icns "$ICONSET" -o "${BUNDLE}/Contents/Resources/AppIcon.icns"
+rm -rf "$(dirname "$ICONSET")"
+
 cat > "${BUNDLE}/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -38,6 +52,7 @@ cat > "${BUNDLE}/Contents/Info.plist" <<PLIST
     <key>CFBundleDisplayName</key><string>${APP_NAME}</string>
     <key>CFBundleIdentifier</key><string>local.powerflow.${APP_NAME}</string>
     <key>CFBundleExecutable</key><string>${APP_NAME}</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>${VERSION}</string>
     <key>CFBundleVersion</key><string>${VERSION}</string>

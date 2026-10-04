@@ -80,7 +80,9 @@ extension StatusItemController {
             check(cpu <= budget,
                   String(format: "aberto: %.1f %% de CPU (máximo %.0f %%), %.0f despertares/s",
                          cpu, budget, Double(wakeups) / Self.openWindow))
-            check(self.monitor?.isSamplingFast == true, "aberto: leituras a 10 Hz ligadas")
+            let expectedHz = AppSettings.sampleRate().fastHz
+            check(self.monitor?.fastHz == expectedHz,
+                  "aberto: leituras rápidas a \(self.monitor?.fastHz.map { "\($0) Hz" } ?? "1 Hz (Baixa)"), como nas Definições")
 
             if reduceMotion {
                 check(phases.isEmpty,
@@ -133,9 +135,67 @@ extension StatusItemController {
         }
         after(navigated + 4.0) {
             check(self.apps.isSampling, "«Por app» outra vez: o amostrador volta a ligar")
+        }
+
+        // As Definições chegam ao monitor e ao item pelo `UserDefaults`, como
+        // quando a janela as muda. Guardam-se as do utilizador e repõem-se.
+        let defaults = UserDefaults.standard
+        let savedRate = defaults.object(forKey: AppSettings.sampleRateKey)
+        let savedMode = defaults.object(forKey: AppSettings.barModeKey)
+        after(navigated + 4.2) {
+            defaults.set("high", forKey: AppSettings.sampleRateKey)
+            defaults.set("watts", forKey: AppSettings.barModeKey)
+        }
+        after(navigated + 4.6) {
+            let bar = self.barButtonState
+            check(self.monitor?.fastHz == 10, "Definições: «Alta» põe o painel aberto a 10 Hz")
+            check(!bar.hasImage && bar.title.contains("W"), "Definições: «Só watts» tira o ícone (título «\(bar.title)»)")
+            defaults.set("low", forKey: AppSettings.sampleRateKey)
+            defaults.set("icon", forKey: AppSettings.barModeKey)
+        }
+        after(navigated + 5.0) {
+            let bar = self.barButtonState
+            check(self.monitor?.isSamplingFast == false, "Definições: «Baixa» deixa o painel aberto a 1 Hz")
+            check(bar.hasImage && bar.title.isEmpty, "Definições: «Só ícone» tira o título")
+            defaults.set("normal", forKey: AppSettings.sampleRateKey)
+            defaults.set("iconPercent", forKey: AppSettings.barModeKey)
+        }
+        after(navigated + 5.4) {
+            let bar = self.barButtonState
+            check(self.monitor?.fastHz == 2, "Definições: «Normal» põe o painel aberto a 2 Hz")
+            let hasBattery = self.monitor?.snapshot.battery.isPresent == true
+            check(bar.hasImage && bar.title.hasSuffix(hasBattery ? "%" : "W"),
+                  "Definições: «Ícone e %» mostra «\(bar.title)»")
+            if let savedRate { defaults.set(savedRate, forKey: AppSettings.sampleRateKey) } else { defaults.removeObject(forKey: AppSettings.sampleRateKey) }
+            if let savedMode { defaults.set(savedMode, forKey: AppSettings.barModeKey) } else { defaults.removeObject(forKey: AppSettings.barModeKey) }
+        }
+        // Primeiro arranque: o cartão aparece, «Percebi» (Return) grava
+        // `pf.firstRunDone`, e reaberto o painel já não o tem.
+        let savedFirstRun = defaults.object(forKey: AppSettings.firstRunDoneKey)
+        after(navigated + 5.8) {
+            self.navigation?.pop(animated: false, reduceMotion: true)
+            defaults.set(false, forKey: AppSettings.firstRunDoneKey)
+        }
+        after(navigated + 6.4) {
+            check(FirstRunCard.shownCount == 1, "primeiro arranque: o cartão aparece")
+            self.sendKey("\r", code: 36)
+        }
+        after(navigated + 7.0) {
+            check(AppSettings.firstRunDone(), "«Percebi» (Return) grava pf.firstRunDone")
+            check(FirstRunCard.shownCount == 0, "depois de «Percebi» o cartão sai")
             self.closePanel()
         }
-        let closed = navigated + 5
+        after(navigated + 7.4) { self.holdPanel() }
+        after(navigated + 8.0) {
+            check(self.popover?.isShown == true && FirstRunCard.shownCount == 0,
+                  "reaberto, o cartão não volta")
+            if let savedFirstRun { defaults.set(savedFirstRun, forKey: AppSettings.firstRunDoneKey) } else { defaults.removeObject(forKey: AppSettings.firstRunDoneKey) }
+        }
+
+        after(navigated + 8.2) {
+            self.closePanel()
+        }
+        let closed = navigated + 8.9
         after(closed) {
             wakeups = 0
             cpuAtStart = Self.cpuSeconds()
@@ -146,7 +206,7 @@ extension StatusItemController {
             check(self.popover?.isShown == false, "o painel fecha por código")
             check(self.popover?.contentViewController == nil,
                   "fechado: o conteúdo do painel deixou de existir")
-            check(self.monitor?.isSamplingFast == false, "fechado: leituras a 10 Hz paradas")
+            check(self.monitor?.isSamplingFast == false, "fechado: leituras rápidas paradas (1 Hz)")
             check(!self.apps.isSampling, "fechado: o amostrador por app parado")
             check(cpu <= Self.closedBudget,
                   String(format: "fechado: %.2f %% de CPU (máximo %.0f %%), %.0f despertares/s",

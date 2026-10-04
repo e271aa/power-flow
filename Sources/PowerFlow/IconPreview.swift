@@ -8,7 +8,7 @@ import AppKit
 enum IconPreview {
     static func render(to path: String) {
         let scales: [CGFloat] = [1, 2, 4, 8]
-        let states = [true, false]
+        let states = MenuBarIcon.State.allCases
         let padding: CGFloat = 16
         let rowHeight: CGFloat = 15 * 8 + padding
 
@@ -24,7 +24,7 @@ enum IconPreview {
             let background: NSColor = isDark ? .black : .white
             let foreground: NSColor = isDark ? .white : .black
 
-            for pluggedIn in states {
+            for state in states {
                 y -= rowHeight
                 background.setFill()
                 NSRect(x: 0, y: y, width: width, height: rowHeight).fill()
@@ -32,8 +32,7 @@ enum IconPreview {
                 var x = padding
                 for scale in scales {
                     let size = NSSize(width: 17 * scale, height: 15 * scale)
-                    let icon = MenuBarIcon.rendered(size: size, pluggedIn: pluggedIn,
-                                                    color: foreground)
+                    let icon = MenuBarIcon.rendered(size: size, state: state, color: foreground)
                     icon.draw(at: NSPoint(x: x, y: y + (rowHeight - size.height) / 2),
                               from: .zero, operation: .sourceOver, fraction: 1)
                     x += size.width + padding
@@ -50,6 +49,6 @@ enum IconPreview {
 
         try? png.write(to: URL(fileURLWithPath: path))
         print("Pré-visualização escrita: \(path)")
-        print("Linhas: claro/ligado, claro/bateria, escuro/ligado, escuro/bateria")
+        print("Linhas: claro: ligado, em bateria, indisponível; escuro: os mesmos três")
     }
 }

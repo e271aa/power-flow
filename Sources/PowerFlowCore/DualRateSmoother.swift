@@ -2,11 +2,12 @@ import Foundation
 
 /// Duas médias móveis sobre a mesma janela de tempo, uma por ritmo.
 ///
-/// Com o painel fechado a app só lê o SMC a 1 Hz; com ele aberto lê a 10 Hz.
+/// Com o painel fechado a app só lê o SMC a 1 Hz; com ele aberto lê ao ritmo
+/// das Definições (2 Hz, ou 10 Hz em «Alta»; em «Baixa» fica a 1 Hz).
 /// O `PowerSmoother` conta amostras e não segundos, por isso cada ritmo tem
 /// a sua média: três amostras a 1 Hz e trinta a 10 Hz cobrem os mesmos três
 /// segundos, e o recuo do adaptador (uma amostra e dez) cobre o mesmo
-/// segundo de atraso.
+/// segundo de atraso. A 2 Hz são seis amostras e um recuo de duas.
 ///
 /// O recuo é de 1,0 s. Medido com a carga parada e rajadas de CPU de 10 W
 /// para 39 W: com dez amostras de recuo a 10 Hz a entrada e o consumo
@@ -23,22 +24,28 @@ import Foundation
 /// disso. Por isso só a média rápida se dá como alinhada.
 public struct DualRateSmoother {
     private var slow = PowerSmoother(windowSize: 3, adapterDelay: 1)
-    private var fast = DualRateSmoother.makeFast()
+    private var fast = DualRateSmoother.makeFast(hz: 10)
 
-    private static func makeFast() -> PowerSmoother {
-        PowerSmoother(windowSize: 30, adapterDelay: 10)
+    private static func makeFast(hz: Int) -> PowerSmoother {
+        PowerSmoother(windowSize: 3 * hz, adapterDelay: hz)
     }
 
     public private(set) var isFast = false
+    /// Leituras por segundo do ritmo rápido.
+    public private(set) var fastHz = 10
 
     public init() {}
 
     /// Liga ou desliga o ritmo rápido. Ao desligar, a média rápida é deitada
     /// fora: quando voltar a ligar, o que lá estava já não é recente.
-    public mutating func setFast(_ on: Bool) {
-        guard on != isFast else { return }
+    /// Mudar o ritmo com ele ligado recomeça a janela: as amostras de um
+    /// ritmo não servem a outro.
+    public mutating func setFast(_ on: Bool, hz: Int = 10) {
+        let hz = max(2, hz)
+        guard on != isFast || (on && hz != fastHz) else { return }
         isFast = on
-        fast = Self.makeFast()
+        fastHz = hz
+        fast = Self.makeFast(hz: hz)
     }
 
     /// Ligar ou desligar o cabo muda o que a entrada mede de um instante
@@ -48,7 +55,7 @@ public struct DualRateSmoother {
     /// bateria a ajudar (medido: até 16 W durante 4 s). A média rápida
     /// recomeça, e até encher não há alinhamento.
     public mutating func sourceChanged() {
-        fast = Self.makeFast()
+        fast = Self.makeFast(hz: fastHz)
     }
 
     /// Uma leitura do ritmo de 1 Hz. Chama-se sempre, aberto ou fechado.
@@ -73,12 +80,12 @@ public struct DualRateSmoother {
     }
 
     /// Segundos até haver números, pelo ritmo que lá chegar primeiro: a média
-    /// lenta recebe uma leitura por segundo e a rápida dez.
+    /// lenta recebe uma leitura por segundo e a rápida `fastHz`.
     public var settleRemaining: Double {
         guard !isSettled else { return 0 }
         let slowSeconds = Double(slow.samplesUntilAligned)
         guard isFast else { return slowSeconds }
-        return min(slowSeconds, Double(fast.samplesUntilAligned) / 10)
+        return min(slowSeconds, Double(fast.samplesUntilAligned) / Double(fastHz))
     }
 
     /// Quanto falta para estabilizar logo depois da primeira leitura, ao ritmo lento.

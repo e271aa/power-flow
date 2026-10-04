@@ -10,6 +10,7 @@ struct PanelView: View {
 
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.forceReduceMotion) private var forceReduceMotion
+    @AppStorage(AppSettings.firstRunDoneKey) private var firstRunDone = false
 
     private var reduceMotion: Bool { systemReduceMotion || forceReduceMotion }
 
@@ -18,7 +19,9 @@ struct PanelView: View {
             PanelScreen(route: navigation.route, snapshot: monitor.snapshot, panel: monitor.panel,
                         history: monitor.history, apps: apps.input,
                         open: { navigation.push($0, reduceMotion: reduceMotion) },
-                        back: { navigation.pop(animated: true, reduceMotion: reduceMotion) })
+                        back: { navigation.pop(animated: true, reduceMotion: reduceMotion) },
+                        firstRun: !firstRunDone,
+                        dismissFirstRun: { firstRunDone = true })
                 .id(navigation.route)
                 .transition(navigation.transition(reduceMotion: reduceMotion))
         }
@@ -58,12 +61,16 @@ struct PanelScreen: View {
     let back: () -> Void
     /// Fixa o período do histórico. Serve o `--snapshot`.
     var historyPeriod: HistoryPeriod?
+    /// Mostra o cartão de primeiro arranque em vez da repartição e do histórico.
+    var firstRun = false
+    var dismissFirstRun: () -> Void = {}
 
     var body: some View {
         switch route {
         case .main:
             PanelContent(snapshot: snapshot, panel: panel, history: history, open: open,
-                         historyPeriod: historyPeriod)
+                         historyPeriod: historyPeriod, firstRun: firstRun,
+                         dismissFirstRun: dismissFirstRun)
         case .battery:
             BatteryDetailView(copy: BatteryCopy(snapshot: snapshot, panel: panel), back: back)
                 .frame(width: PanelContent.width, alignment: .leading)
@@ -81,6 +88,8 @@ struct PanelContent: View {
     let history: HistoryStore
     let open: (PanelRoute) -> Void
     var historyPeriod: HistoryPeriod?
+    var firstRun = false
+    var dismissFirstRun: () -> Void = {}
 
     static let width: CGFloat = 360
 
@@ -107,11 +116,27 @@ struct PanelContent: View {
                                             bottom: PFSpace.m, trailing: PFSpace.popoverMargin))
                 }
 
+                // Na primeira vez: cabeçalho, cartão e diagrama, e mais nada.
+                if firstRun {
+                    FirstRunCard(showsBattery: panel.showsBattery, dismiss: dismissFirstRun)
+                        .padding(EdgeInsets(top: 0, leading: PFSpace.popoverMargin,
+                                            bottom: PFSpace.m, trailing: PFSpace.popoverMargin))
+                }
+
                 FlowDiagram(snapshot: snapshot, panel: panel, copy: copy,
                             openBattery: { open(.battery) })
                     .padding(EdgeInsets(top: PFSpace.xs, leading: PFSpace.popoverMargin,
                                         bottom: 14, trailing: PFSpace.popoverMargin))
 
+                if !firstRun {
+                    breakdownAndHistory
+                }
+            }
+        }
+        .frame(width: Self.width, alignment: .leading)
+    }
+
+    @ViewBuilder private var breakdownAndHistory: some View {
                 if !snapshot.breakdown.isEmpty {
                     separator
                     BreakdownView(slices: snapshot.breakdown, openApps: { open(.apps) })
@@ -122,9 +147,6 @@ struct PanelContent: View {
                 HistorySection(store: history, now: snapshot.timestamp, forcedPeriod: historyPeriod)
                     .padding(EdgeInsets(top: 10, leading: PFSpace.popoverMargin,
                                         bottom: PFSpace.m, trailing: PFSpace.popoverMargin))
-            }
-        }
-        .frame(width: Self.width, alignment: .leading)
     }
 
     private var separator: some View {
@@ -230,7 +252,7 @@ private struct PFIconButtonStyle: ButtonStyle {
     }
 }
 
-/// O menu do painel. «Definições…» entra quando a janela existir (Fase 8).
+/// O menu do painel.
 @MainActor
 private final class PanelMenu: NSObject, ObservableObject, NSMenuDelegate {
     @Published private(set) var isOpen = false
@@ -244,6 +266,9 @@ private final class PanelMenu: NSObject, ObservableObject, NSMenuDelegate {
         let about = menu.addItem(withTitle: L10n.string("m_about"),
                                  action: #selector(showAbout), keyEquivalent: "")
         about.target = self
+        let settings = menu.addItem(withTitle: L10n.string("m_settings"),
+                                    action: #selector(showSettings), keyEquivalent: ",")
+        settings.target = self
         menu.addItem(.separator())
         let quit = menu.addItem(withTitle: L10n.string("m_quit"),
                                 action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
@@ -252,6 +277,10 @@ private final class PanelMenu: NSObject, ObservableObject, NSMenuDelegate {
         // Por baixo do botão, encostado à direita dele.
         let origin = NSPoint(x: anchor.bounds.maxX - menu.size.width, y: anchor.bounds.minY - 4)
         menu.popUp(positioning: nil, at: origin, in: anchor)
+    }
+
+    @objc private func showSettings() {
+        SettingsWindow.shared.show()
     }
 
     @objc private func showAbout() {
@@ -348,6 +377,67 @@ private struct PanelBanner: View {
         .background {
             RoundedRectangle(cornerRadius: PFRadius.banner, style: .continuous)
                 .fill(banner.isAttention ? PFColor.amberSoft : PFColor.fill)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+// MARK: - Primeiro arranque
+
+/// O cartão que explica o diagrama na primeira vez (secção G do handoff).
+/// «Percebi» grava `pf.firstRunDone` e faz aparecer a repartição e o histórico.
+struct FirstRunCard: View {
+    let showsBattery: Bool
+    let dismiss: () -> Void
+
+    /// Quantos cartões estão à vista. Serve o `--panel-check`.
+    @MainActor static var shownCount = 0
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text(L10n.string("f_title")).pfType(.title)
+            Text(L10n.string("f_body")).pfType(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: PFSpace.xs) {
+                legend(PFColor.green, "n_adapter", "f_ad")
+                // Mac sem bateria: sem nó de bateria, e sem linha para ele.
+                if showsBattery { legend(PFColor.amber, "n_battery", "f_bat") }
+                legend(PFColor.blue, "n_system", "f_sys")
+            }
+
+            Text(L10n.string("f_readonly")).pfType(.secondary)
+                .foregroundStyle(PFColor.fg2)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack {
+                Spacer(minLength: 0)
+                Button(L10n.string("f_ok"), action: dismiss)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .foregroundStyle(PFColor.fg)
+        .padding(PFSpace.m)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: PFRadius.card, style: .continuous)
+                .fill(PFColor.node)
+            RoundedRectangle(cornerRadius: PFRadius.card, style: .continuous)
+                .strokeBorder(PFColor.nodeBorder, lineWidth: 1)
+        }
+        .onAppear { Self.shownCount += 1 }
+        .onDisappear { Self.shownCount -= 1 }
+    }
+
+    /// Ponto de 8 pt, o nome do nó em semibold e o que ele mede em `fg2`.
+    /// A cor não fica sozinha: o nome vem ao lado.
+    private func legend(_ color: Color, _ name: String, _ text: String) -> some View {
+        HStack(spacing: PFSpace.s) {
+            Circle().fill(color).frame(width: 8, height: 8).accessibilityHidden(true)
+            Text(L10n.string(name)).font(.system(size: 12, weight: .semibold))
+            Text(L10n.string(text)).font(.system(size: 12)).foregroundStyle(PFColor.fg2)
         }
         .accessibilityElement(children: .combine)
     }

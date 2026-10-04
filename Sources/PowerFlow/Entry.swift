@@ -42,6 +42,21 @@ enum Entry {
             MainActor.assumeIsolated { DumpApps.run(seconds: seconds, forcing: forced) }
             exit(0)
         }
+        if let index = arguments.firstIndex(of: "--login-item") {
+            // Estado, ligar ou desligar o arranque com a sessão, para o testar com a assinatura ad-hoc.
+            let action = index + 1 < arguments.count ? arguments[index + 1] : "status"
+            print("antes : \(LoginItem.statusName)")
+            if action == "on" || action == "off" {
+                do {
+                    try LoginItem.set(action == "on")
+                    print("\(action)    : feito")
+                } catch {
+                    print("\(action)    : erro: \(error.localizedDescription) (\((error as NSError).domain) \((error as NSError).code))")
+                }
+                print("depois: \(LoginItem.statusName)")
+            }
+            exit(0)
+        }
         if arguments.contains("--dump-keys") {
             Diagnostics.dumpAllPowerKeys()
             exit(0)
@@ -82,15 +97,18 @@ enum Entry {
             }
             if value(after: "--view") == "history" {
                 options.onlyHistory = true
+            } else if value(after: "--view") == "settings" {
+                options.onlySettings = true
             } else if let name = value(after: "--view") {
                 guard let route = Snapshotter.routes[name] else {
                     print("Vista desconhecida: \(name). Vistas: "
-                        + (Snapshotter.routes.keys + ["history"]).sorted().joined(separator: ", "))
+                        + (Snapshotter.routes.keys + ["history", "settings"]).sorted().joined(separator: ", "))
                     exit(2)
                 }
                 options.route = route
             }
             options.isFresh = arguments.contains("--fresh")
+            options.firstRun = arguments.contains("--first-run")
             options.pointer = value(after: "--pointer").flatMap(Double.init)
             if let name = value(after: "--period") {
                 guard let period = HistoryPeriod(rawValue: name) else {
@@ -112,10 +130,18 @@ enum Entry {
             exit(0)
         }
 
+        if let index = arguments.firstIndex(of: "--watch-assist") {
+            let seconds = index + 1 < arguments.count ? Int(arguments[index + 1]) ?? 60 : 60
+            MainActor.assumeIsolated { Watch.assist(seconds: seconds) }
+            exit(0)
+        }
+
         if let index = arguments.firstIndex(of: "--watch") {
             let seconds = index + 1 < arguments.count ? Int(arguments[index + 1]) ?? 20 : 20
             let fast = !arguments.contains("--closed")
-            MainActor.assumeIsolated { Watch.run(seconds: seconds, fast: fast) }
+            let rate = arguments.firstIndex(of: "--rate").flatMap { $0 + 1 < arguments.count ? SampleRate(rawValue: arguments[$0 + 1]) : nil }
+                ?? AppSettings.sampleRate()
+            MainActor.assumeIsolated { Watch.run(seconds: seconds, fast: fast, rate: rate) }
             exit(0)
         }
 
@@ -130,6 +156,17 @@ enum Entry {
                 app.run()
             }
             return
+        }
+
+        if let index = arguments.firstIndex(of: "--notify-test") {
+            let name = index + 1 < arguments.count ? arguments[index + 1] : "assist"
+            guard let kind = AlertKind(rawValue: name) else {
+                print("Alerta desconhecido: \(name). Alertas: "
+                    + AlertKind.allCases.map(\.rawValue).joined(separator: ", "))
+                exit(2)
+            }
+            let wait = index + 2 < arguments.count ? Double(arguments[index + 2]) ?? 120 : 120
+            MainActor.assumeIsolated { NotifyTest.run(kind, answerWithin: wait) }
         }
 
         let isDiagnose = arguments.contains("--diagnose")
@@ -179,6 +216,8 @@ enum Entry {
             delegate.openPanelAfter = openPanelAfter
             delegate.openAppsOnOpen = arguments.contains("--view") && arguments.contains("apps")
             delegate.forceReduceMotion = arguments.contains("--reduce-motion")
+            delegate.logTitleChanges = arguments.contains("--log-title")
+            delegate.logAlerts = arguments.contains("--log-alerts")
             app.delegate = delegate
             app.setActivationPolicy(.accessory)
             app.run()

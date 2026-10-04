@@ -184,6 +184,11 @@
 "s_about" = "Sobre";
 "s_version" = "Versão";
 "s_source" = "Código-fonte";
+"s_login_pending" = "Falta aprovar em Definições do Sistema › Geral › Itens de início de sessão.";
+"s_login_open" = "Abrir…";
+"s_login_error" = "Não foi possível mudar o arranque com a sessão.";
+"s_bar_ip_off" = "Este Mac não tem bateria";
+"tt_status_off" = "PowerFlow — sensores indisponíveis";
 
 /* ── Notificações ── */
 "n_assist_t" = "A bateria está a ajudar o adaptador";
@@ -192,6 +197,8 @@
 /* args: c */
 "n_temp_t" = "Bateria quente: %@";
 "n_temp_b" = "A carga parou até arrefecer. Deixa as saídas de ar livres.";
+/* Sem pausa da carga pelo calor (em bateria, ou a carregar na mesma). */
+"n_temp_b_hot" = "Deixa as saídas de ar livres para a bateria arrefecer.";
 "n_weak_t" = "Adaptador fraco para este uso";
 /* args: r, s */
 "n_weak_b" = "O adaptador de %1$@ não chega para carregar enquanto o Mac gasta %2$@.";

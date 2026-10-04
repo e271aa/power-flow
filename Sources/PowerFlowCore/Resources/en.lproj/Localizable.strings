@@ -184,6 +184,11 @@
 "s_about" = "About";
 "s_version" = "Version";
 "s_source" = "Source code";
+"s_login_pending" = "Needs approval in System Settings › General › Login Items.";
+"s_login_open" = "Open…";
+"s_login_error" = "Couldn't change launch at login.";
+"s_bar_ip_off" = "This Mac has no battery";
+"tt_status_off" = "PowerFlow — sensors unavailable";
 
 /* ── Notificações ── */
 "n_assist_t" = "The battery is backing up the adapter";
@@ -192,6 +197,8 @@
 /* args: c */
 "n_temp_t" = "Battery hot: %@";
 "n_temp_b" = "Charging stopped until it cools. Keep the vents clear.";
+/* Charging not paused for heat (on battery, or still charging). */
+"n_temp_b_hot" = "Keep the vents clear so the battery can cool.";
 "n_weak_t" = "Adapter too weak for this load";
 /* args: r, s */
 "n_weak_b" = "The %1$@ adapter can’t charge while your Mac uses %2$@.";

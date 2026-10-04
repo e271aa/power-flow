@@ -27,6 +27,10 @@ enum Snapshotter {
         var isFresh = false
         /// Desenha só a secção do histórico.
         var onlyHistory = false
+        /// Desenha a janela de Definições, com as preferências guardadas.
+        var onlySettings = false
+        /// Desenha o painel como no primeiro arranque, com o cartão.
+        var firstRun = false
         /// Onde pôr a leitura por ponteiro do histórico, de 0 (esquerda) a 1.
         var pointer: Double?
     }
@@ -83,7 +87,9 @@ enum Snapshotter {
         case nil:       break
         }
         let content: AnyView
-        if options.onlyHistory {
+        if options.onlySettings {
+            content = AnyView(SettingsView(hasBattery: snapshot.battery.isPresent))
+        } else if options.onlyHistory {
             content = AnyView(HistorySection(store: history, now: snapshot.timestamp,
                                              forcedPeriod: options.period ?? .twoMinutes,
                                              pointerPosition: options.pointer)
@@ -94,7 +100,8 @@ enum Snapshotter {
             content = AnyView(PanelScreen(
                 route: options.route, snapshot: snapshot,
                 panel: PanelState(snapshot: snapshot, sensorsAvailable: sensorsAvailable),
-                history: history, apps: apps, open: { _ in }, back: {}, historyPeriod: options.period))
+                history: history, apps: apps, open: { _ in }, back: {}, historyPeriod: options.period,
+                firstRun: options.firstRun))
         }
 
         let appearance = options.appearance.flatMap { NSAppearance(named: $0) }
