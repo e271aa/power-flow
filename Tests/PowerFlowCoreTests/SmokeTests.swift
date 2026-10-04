@@ -7,6 +7,7 @@ final class SmokeTests: XCTestCase {
     /// Com o cabo desligado, tudo o que o sistema consome sai da bateria.
     func testEmBateriaOConsumoSaiTodoDaBateria() {
         var snapshot = PowerSnapshot()
+        snapshot.battery.isPresent = true
         snapshot.battery.isExternalConnected = false
         snapshot.systemTotal = 12.5
 
@@ -20,6 +21,7 @@ final class SmokeTests: XCTestCase {
     /// e pela bateria sem sobrar nem faltar.
     func testACarregarOBalancoFecha() {
         var snapshot = PowerSnapshot()
+        snapshot.battery.isPresent = true
         snapshot.battery.isExternalConnected = true
         snapshot.battery.isCharging = true
         snapshot.adapterInput = 60

@@ -9,6 +9,7 @@ import SwiftUI
 enum Snapshotter {
     static func render(to path: String, warmUpSeconds: Double) {
         let monitor = PowerMonitor()
+        monitor.setFastSampling(true)
 
         // Deixar o histórico encher, senão o gráfico sai vazio.
         let deadline = Date().addingTimeInterval(warmUpSeconds)
@@ -16,7 +17,8 @@ enum Snapshotter {
             RunLoop.main.run(until: Date().addingTimeInterval(0.1))
         }
 
-        let renderer = ImageRenderer(content: ContentView(monitor: monitor))
+        let renderer = ImageRenderer(content: ContentView(monitor: monitor)
+            .environment(\.isStaticRender, true))
         renderer.scale = 2
 
         guard let image = renderer.nsImage,

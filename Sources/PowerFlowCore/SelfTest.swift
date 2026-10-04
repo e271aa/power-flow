@@ -58,6 +58,7 @@ public enum SelfTest {
     /// Sem cabo, todo o consumo sai da bateria.
     private static func onBatteryUsesSystemTotal() {
         var snapshot = PowerSnapshot()
+        snapshot.battery.isPresent = true
         snapshot.battery.isExternalConnected = false
         snapshot.systemTotal = 12.5
         snapshot.batteryMagnitude = 11.0
@@ -82,6 +83,7 @@ public enum SelfTest {
     /// Sem a chave do consumo total, o modelo ainda tem de dar algo coerente.
     private static func degradesWithoutSystemTotal() {
         var snapshot = PowerSnapshot()
+        snapshot.battery.isPresent = true
         snapshot.battery.isExternalConnected = true
         snapshot.battery.isCharging = true
         snapshot.adapterInput = 60
@@ -164,6 +166,7 @@ public enum SelfTest {
         expectFalse(smoother.isAligned, "janela ainda a encher")
 
         var snapshot = PowerSnapshot()
+        snapshot.battery.isPresent = true
         snapshot.battery.isExternalConnected = true
         snapshot.isAligned = false
         snapshot.apply(early)
@@ -182,6 +185,7 @@ public enum SelfTest {
         let averaged = smoother.add(rails(input: 15.0, total: 22.0))
 
         var snapshot = PowerSnapshot()
+        snapshot.battery.isPresent = true
         snapshot.battery.isExternalConnected = true
         snapshot.apply(averaged)
         expect(snapshot.batteryToSystem, 0, "pico isolado não acende a seta")
@@ -193,6 +197,7 @@ public enum SelfTest {
         for _ in 0..<15 { smoother.add(rails(input: 20, total: 30)) }
 
         var snapshot = PowerSnapshot()
+        snapshot.battery.isPresent = true
         snapshot.battery.isExternalConnected = true
         snapshot.apply(smoother.average)
         expect(snapshot.batteryToSystem, 10, "défice sustentado continua visível")
@@ -209,6 +214,7 @@ public enum SelfTest {
 
     private static func charging(input: Double, total: Double) -> PowerSnapshot {
         var snapshot = PowerSnapshot()
+        snapshot.battery.isPresent = true
         snapshot.battery.isExternalConnected = true
         snapshot.battery.isCharging = true
         snapshot.adapterInput = input
@@ -218,6 +224,7 @@ public enum SelfTest {
 
     private static func connectedNotCharging(input: Double, total: Double) -> PowerSnapshot {
         var snapshot = PowerSnapshot()
+        snapshot.battery.isPresent = true
         snapshot.battery.isExternalConnected = true
         snapshot.battery.isCharging = false
         snapshot.adapterInput = input

@@ -25,10 +25,20 @@ public struct PowerSnapshot: Sendable {
     /// tempo, e a diferença entre eles é ruído de arranque, não assistência.
     public var isAligned: Bool = true
 
+    /// Falso só no arranque, enquanto ainda não há leituras que cheguem
+    /// para mostrar números. Não é o mesmo que `isAligned`: com o painel
+    /// fechado, a 1 Hz, há números mas a diferença entre entrada e consumo
+    /// não é de confiança.
+    public var isSettled: Bool = true
+
     public init() {}
 
+    /// Um Mac sem bateria está sempre ligado à corrente. Sem esta guarda, a
+    /// falta de `ExternalConnected` punha a energia a sair de uma bateria
+    /// que não existe.
     public var source: PowerSource {
-        battery.isExternalConnected ? .adapter : .battery
+        guard battery.isPresent else { return .adapter }
+        return battery.isExternalConnected ? .adapter : .battery
     }
 
     // MARK: - Caudais do diagrama
@@ -46,7 +56,11 @@ public struct PowerSnapshot: Sendable {
 
     /// W que vão do adaptador diretamente para o sistema.
     public var adapterToSystem: Double {
-        guard source == .adapter, let input = adapterInput else { return 0 }
+        guard source == .adapter else { return 0 }
+        // Sem bateria não há outro caminho: tudo o que o sistema consome
+        // vem da corrente, haja ou não leitura da entrada.
+        guard battery.isPresent else { return systemTotal ?? adapterInput ?? 0 }
+        guard let input = adapterInput else { return 0 }
         guard let total = systemTotal else { return max(0, input - adapterToBattery) }
         return min(input, total)
     }
@@ -65,6 +79,7 @@ public struct PowerSnapshot: Sendable {
     /// Acontece com o cabo desligado, mas também com o cabo ligado quando o
     /// sistema pede mais do que o adaptador consegue dar.
     public var batteryToSystem: Double {
+        guard battery.isPresent else { return 0 }
         switch source {
         case .battery:
             return systemTotal ?? batteryMagnitude
@@ -79,7 +94,7 @@ public struct PowerSnapshot: Sendable {
 
     /// Margem abaixo da qual a diferença entre consumo e entrada é ruído de
     /// amostragem e não assistência real da bateria.
-    private static let assistTolerance: Double = 1.5
+    public static let assistTolerance: Double = 1.5
 
     /// Substitui as leituras de rails, mantendo o estado da bateria.
     public mutating func apply(_ reading: RailReading) {

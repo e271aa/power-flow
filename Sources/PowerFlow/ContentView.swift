@@ -5,20 +5,24 @@ struct ContentView: View {
     @ObservedObject var monitor: PowerMonitor
 
     var body: some View {
+        let panel = monitor.panel
+
         VStack(alignment: .leading, spacing: 14) {
-            if monitor.isAvailable {
-                FlowDiagram(snapshot: monitor.snapshot)
-                    .frame(height: 235)
+            if panel.kind != .unavailable {
+                FlowDiagram(snapshot: monitor.snapshot, panel: panel)
 
                 Divider().opacity(0.5)
-                BreakdownView(snapshot: monitor.snapshot)
+                BreakdownView(slices: monitor.snapshot.breakdown)
 
                 Divider().opacity(0.5)
                 HistoryChart(samples: monitor.history.recent(seconds: 120))
 
-                Divider().opacity(0.5)
-                BatteryHealthView(battery: monitor.snapshot.battery,
-                                  temperature: monitor.snapshot.batteryTemperature)
+                if panel.showsBattery {
+                    Divider().opacity(0.5)
+                    BatteryHealthView(battery: monitor.snapshot.battery,
+                                      temperature: monitor.snapshot.batteryTemperature,
+                                      time: panel.time)
+                }
             } else {
                 unavailable
             }
@@ -58,12 +62,12 @@ struct ContentView: View {
     }
 
     private var sourceLabel: String {
-        switch monitor.snapshot.source {
-        case .adapter:
-            let name = monitor.snapshot.battery.adapterName
-            return name.isEmpty ? "Ligado à corrente" : name
+        switch monitor.panel.origin {
         case .battery:
             return "A funcionar com bateria"
+        case .mains, .adapter, .adapterAndBattery:
+            let name = monitor.snapshot.battery.adapterName
+            return name.isEmpty ? "Ligado à corrente" : name
         }
     }
 }

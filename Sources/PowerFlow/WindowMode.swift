@@ -14,6 +14,8 @@ final class WindowModeDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let monitor = PowerMonitor()
+        // A janela é o painel, e está sempre à vista.
+        monitor.setFastSampling(true)
         self.monitor = monitor
 
         let hosting = NSHostingController(rootView: ContentView(monitor: monitor))

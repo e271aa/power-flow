@@ -2,9 +2,11 @@ import Foundation
 
 /// Média móvel sobre as leituras do SMC, com alinhamento temporal entre elas.
 ///
-/// O `PSTR` (consumo) está atrasado cerca de 0.9 s face ao `PDTR` (entrada).
-/// Medido por correlação cruzada entre as duas séries a 10 Hz durante 40 s:
-/// r = 0.9926 com 0.9 s de desfasamento, contra r = 0.66 sem desfasamento.
+/// O `PSTR` (consumo) está atrasado 1,0 s face ao `PDTR` (entrada).
+/// A primeira medição, por correlação cruzada entre as duas séries a 10 Hz
+/// durante 40 s, deu 0.9 s (r = 0.9926, contra r = 0.66 sem desfasamento).
+/// A segunda, com degraus de carga e os recuos de 9, 10 e 11 amostras lado
+/// a lado, mostrou que só com 10 as duas séries coincidem.
 /// Não são grandezas diferentes a discordar — é a mesma grandeza, com um dos
 /// registos a atualizar mais tarde.
 ///
@@ -20,13 +22,13 @@ import Foundation
 public struct PowerSmoother {
     /// Amostras na janela de média. A 10 Hz, 30 amostras são três segundos.
     public let windowSize: Int
-    /// Quantas amostras recuar a janela do adaptador. A 10 Hz, 9 são 0.9 s.
+    /// Quantas amostras recuar a janela do adaptador. A 10 Hz, 10 são 1,0 s.
     public let adapterDelay: Int
 
     private var samples: [RailReading] = []
     private var capacity: Int { windowSize + adapterDelay }
 
-    public init(windowSize: Int = 30, adapterDelay: Int = 9) {
+    public init(windowSize: Int = 30, adapterDelay: Int = 10) {
         self.windowSize = max(1, windowSize)
         self.adapterDelay = max(0, adapterDelay)
     }

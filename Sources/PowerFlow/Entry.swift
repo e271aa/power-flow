@@ -9,6 +9,9 @@ import PowerFlowCore
 /// recusa o atributo.
 @main
 enum Entry {
+    /// O trinco de instância única, guardado enquanto a app correr.
+    private static var instanceLock: InstanceLock?
+
     static func main() {
         let arguments = CommandLine.arguments
 
@@ -37,7 +40,8 @@ enum Entry {
 
         if let index = arguments.firstIndex(of: "--watch") {
             let seconds = index + 1 < arguments.count ? Int(arguments[index + 1]) ?? 20 : 20
-            MainActor.assumeIsolated { Watch.run(seconds: seconds) }
+            let fast = !arguments.contains("--closed")
+            MainActor.assumeIsolated { Watch.run(seconds: seconds, fast: fast) }
             exit(0)
         }
 
@@ -54,9 +58,51 @@ enum Entry {
             return
         }
 
+        let isDiagnose = arguments.contains("--diagnose")
+        let isPanelCheck = arguments.contains("--panel-check")
+        let wantsClose = arguments.contains("--close-panel")
+
+        // Daqui para baixo é a app da barra de menus, e só pode haver uma.
+        // O `--diagnose` fica de fora: cria um item durante 2 s e sai.
+        if !isDiagnose {
+            switch InstanceLock.acquire(at: InstanceLock.defaultURL) {
+            case .acquired(let lock):
+                instanceLock = lock
+            case .heldByAnother:
+                if isPanelCheck {
+                    print("Já há uma instância a correr. Fecha-a antes do --panel-check.")
+                    exit(2)
+                }
+                // A segunda abertura ativa a primeira e termina.
+                if wantsClose {
+                    RemoteCommand.closePanel.post()
+                } else if arguments.contains("--open-panel") {
+                    RemoteCommand.holdPanel.post()
+                } else {
+                    RemoteCommand.showPanel.post()
+                }
+                exit(0)
+            case .unavailable:
+                break
+            }
+        }
+        if wantsClose {
+            print("Não há nenhuma instância a correr.")
+            exit(1)
+        }
+
+        var openPanelAfter: TimeInterval?
+        if let index = arguments.firstIndex(of: "--open-panel") {
+            // Aos 2 s o item ainda não está na barra e o painel não abre.
+            openPanelAfter = index + 1 < arguments.count
+                ? Double(arguments[index + 1]) ?? 5 : 5
+        }
+
         MainActor.assumeIsolated {
             let delegate = StatusItemController()
-            delegate.diagnoseAndExit = arguments.contains("--diagnose")
+            delegate.diagnoseAndExit = isDiagnose
+            delegate.checkPanelAndExit = isPanelCheck
+            delegate.openPanelAfter = openPanelAfter
             app.delegate = delegate
             app.setActivationPolicy(.accessory)
             app.run()

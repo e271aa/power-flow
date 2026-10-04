@@ -1,80 +1,94 @@
 import PowerFlowCore
 import SwiftUI
 
+/// Verdadeiro quando a interface é renderizada para uma imagem parada
+/// (`--snapshot`). Aí não há camadas animadas, e as partículas desenham-se
+/// congeladas para a imagem mostrar o mesmo que o ecrã.
+private struct StaticRenderKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var isStaticRender: Bool {
+        get { self[StaticRenderKey.self] }
+        set { self[StaticRenderKey.self] = newValue }
+    }
+}
+
 /// O diagrama de fluxo: três nós e as correntes de energia entre eles.
 struct FlowDiagram: View {
     let snapshot: PowerSnapshot
+    let panel: PanelState
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isStaticRender) private var isStaticRender
+
+    /// Altura do diagrama completo. A geometria calcula-se sempre para ela.
+    private static let height: CGFloat = 235
+    /// Sem bateria fica só a fila de cima, com os nós onde sempre estiveram.
+    private static let heightWithoutBattery: CGFloat = 116
 
     var body: some View {
         GeometryReader { proxy in
-            let geometry = FlowGeometry(size: proxy.size)
+            let geometry = FlowGeometry(size: CGSize(width: proxy.size.width,
+                                                     height: Self.height))
+            let streams = streams(in: geometry)
 
             ZStack {
-                TimelineView(.animation) { timeline in
-                    Canvas { context, _ in
-                        let phase = timeline.date.timeIntervalSinceReferenceDate
-                        for stream in streams(in: geometry) {
-                            draw(stream, in: &context, phase: phase)
-                        }
+                // Os trilhos só mudam quando chega uma leitura, por isso
+                // desenham-se uma vez por leitura e não por fotograma.
+                Canvas { context, _ in
+                    for stream in streams {
+                        drawTrack(stream, in: &context)
+                        if isStaticRender { drawFrozenParticles(stream, in: &context) }
                     }
+                }
+                if !isStaticRender {
+                    ParticleLayer(streams: streams)
                 }
                 nodes(in: geometry)
             }
         }
+        .frame(height: panel.showsBattery ? Self.height : Self.heightWithoutBattery)
     }
 
     // MARK: - Correntes
 
-    /// Uma aresta com o caudal que a atravessa neste instante.
-    private struct Stream {
-        let edge: FlowEdge
-        let watts: Double
-        var tint: Color { edge.from.tint }
-    }
-
-    private func streams(in geometry: FlowGeometry) -> [Stream] {
-        [
-            Stream(edge: geometry.edge(from: .adapter, to: .system),
-                   watts: snapshot.adapterToSystem),
-            Stream(edge: geometry.edge(from: .adapter, to: .battery),
-                   watts: snapshot.adapterToBattery),
-            Stream(edge: geometry.edge(from: .battery, to: .system),
-                   watts: snapshot.batteryToSystem),
+    private func streams(in geometry: FlowGeometry) -> [FlowStream] {
+        var flows: [(FlowNode, FlowNode, Double)] = [
+            (.adapter, .system, snapshot.adapterToSystem),
         ]
+        if panel.showsBattery {
+            flows.append((.adapter, .battery, snapshot.adapterToBattery))
+            flows.append((.battery, .system, snapshot.batteryToSystem))
+        }
+        return flows.map { from, to, watts in
+            FlowStream(edge: geometry.edge(from: from, to: to),
+                       flow: EdgeFlow(watts: watts, reduceMotion: reduceMotion))
+        }
     }
 
     // MARK: - Desenho
 
-    /// Abaixo deste caudal a aresta desenha-se apagada e sem partículas.
-    private static let idleThreshold: Double = 0.15
-
-    private func draw(_ stream: Stream, in context: inout GraphicsContext, phase: TimeInterval) {
-        let isActive = stream.watts > Self.idleThreshold
-
+    private func drawTrack(_ stream: FlowStream, in context: inout GraphicsContext) {
         // Trilho: sempre visível, para a estrutura do diagrama se ler
         // mesmo quando não passa energia por ali.
         context.stroke(
             stream.edge.path,
-            with: .color(stream.tint.opacity(isActive ? 0.22 : 0.10)),
-            style: StrokeStyle(lineWidth: isActive ? lineWidth(for: stream.watts) : 2,
-                               lineCap: .round)
+            with: .color(stream.tint.opacity(stream.flow.isActive ? 0.22 : 0.10)),
+            style: StrokeStyle(lineWidth: stream.flow.lineWidth, lineCap: .round)
         )
+    }
 
-        guard isActive else { return }
-
-        let count = particleCount(for: stream.watts)
-        let speed = particleSpeed(for: stream.watts)
-        let offset = phase * speed
-        let radius = particleRadius(for: stream.watts)
+    /// As partículas num instante fixo, repartidas pelo caminho.
+    private func drawFrozenParticles(_ stream: FlowStream, in context: inout GraphicsContext) {
+        let count = stream.flow.particleCount
+        let radius = CGFloat(stream.flow.particleRadius)
 
         for index in 0..<count {
-            let t = (offset + Double(index) / Double(count)).truncatingRemainder(dividingBy: 1)
+            let t = Double(index) / Double(count)
             let point = stream.edge.point(at: CGFloat(t))
-
-            // Desvanece nos extremos para as partículas nascerem e morrerem
-            // suavemente em vez de piscarem ao chegar ao nó.
-            let fade = min(t, 1 - t) / 0.12
-            let opacity = min(1, max(0, fade))
+            let opacity = min(1, max(0, min(t, 1 - t) / 0.12))
 
             let rect = CGRect(x: point.x - radius, y: point.y - radius,
                               width: radius * 2, height: radius * 2)
@@ -83,34 +97,13 @@ struct FlowDiagram: View {
         }
     }
 
-    /// Espessura, número, velocidade e tamanho crescem com o caudal, mas em
-    /// raiz quadrada: entre 1 W e 60 W a diferença linear seria tão grande
-    /// que os caudais pequenos ficariam invisíveis.
-    private func scaled(_ watts: Double) -> Double {
-        min(sqrt(max(watts, 0)) / sqrt(60), 1)
-    }
-
-    private func lineWidth(for watts: Double) -> CGFloat {
-        2 + CGFloat(scaled(watts)) * 4
-    }
-
-    private func particleCount(for watts: Double) -> Int {
-        3 + Int(scaled(watts) * 9)
-    }
-
-    private func particleSpeed(for watts: Double) -> Double {
-        0.10 + scaled(watts) * 0.45
-    }
-
-    private func particleRadius(for watts: Double) -> CGFloat {
-        1.8 + CGFloat(scaled(watts)) * 2.2
-    }
-
     // MARK: - Nós
 
     @ViewBuilder
     private func nodes(in geometry: FlowGeometry) -> some View {
-        ForEach([FlowNode.adapter, .battery, .system], id: \.self) { node in
+        let visible: [FlowNode] = panel.showsBattery
+            ? [.adapter, .battery, .system] : [.adapter, .system]
+        ForEach(visible, id: \.self) { node in
             NodeBadge(node: node,
                       radius: geometry.nodeRadius,
                       watts: watts(for: node),
@@ -136,18 +129,20 @@ struct FlowDiagram: View {
         case .adapter:
             // A potência máxima do adaptador já aparece no rodapé; repeti-la
             // aqui punha texto por cima da aresta que desce para a bateria.
-            return snapshot.source == .adapter ? nil : "desligado"
+            return panel.origin == .battery ? "desligado" : nil
         case .battery:
-            if snapshot.adapterToBattery > FlowDiagram.idleThreshold { return "a carregar" }
-            if snapshot.batteryToSystem > FlowDiagram.idleThreshold { return "a descarregar" }
-            return "\(snapshot.battery.percentage) %"
+            switch panel.batteryActivity {
+            case .charging:  return "a carregar"
+            case .supplying: return "a descarregar"
+            case .idle:      return "\(snapshot.battery.percentage) %"
+            }
         case .system:
             return nil
         }
     }
 
     private func isDimmed(_ node: FlowNode) -> Bool {
-        node == .adapter && snapshot.source == .battery
+        node == .adapter && panel.origin == .battery
     }
 }
 
@@ -198,6 +193,5 @@ private struct NodeBadge: View {
             }
         }
         .frame(width: radius * 2.7)
-        .animation(.easeOut(duration: 0.45), value: watts)
     }
 }

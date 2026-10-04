@@ -7,8 +7,11 @@ import PowerFlowCore
 /// não uma reimplementação, para o que se vê aqui ser o que se vê no ecrã.
 @MainActor
 enum Watch {
-    static func run(seconds: Int) {
+    /// - Parameter fast: verdadeiro mede como com o painel aberto (10 Hz);
+    ///   falso, como com ele fechado (1 Hz).
+    static func run(seconds: Int, fast: Bool) {
         let monitor = PowerMonitor()
+        monitor.setFastSampling(fast)
         print("  t   adapt.  sist.  bat.  | a->s   a->b   b->s  | soma  desvio | soc   ecra  outros")
         print(String(repeating: "-", count: 88))
 

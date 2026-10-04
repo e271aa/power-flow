@@ -14,58 +14,83 @@ final class PowerMonitor: ObservableObject {
 
     let history = PowerHistory()
 
-    /// 30 amostras a 10 Hz (três segundos) e 9 de recuo (0.9 s) para alinhar
-    /// a entrada com o consumo. Ver `PowerSmoother`.
-    private var smoother = PowerSmoother(windowSize: 30, adapterDelay: 9)
+    /// O estado do painel para o instantâneo atual. As vistas recebem este.
+    var panel: PanelState {
+        PanelState(snapshot: snapshot, sensorsAvailable: isAvailable)
+    }
+
+    /// Três segundos de média e um de recuo para alinhar a entrada com o
+    /// consumo, a 1 Hz ou a 10 Hz. Ver `DualRateSmoother`.
+    private var smoother = DualRateSmoother()
 
     private var railTimer: Timer?
     private var snapshotTimer: Timer?
     private var runLoopSource: CFRunLoopSource?
 
+    var isSamplingFast: Bool { railTimer != nil }
+
     init() {
         isAvailable = SMCCatalog.shared.prepare()
-        sample()
+        tick()
         start()
     }
 
-    private func start() {
-        // Leituras do SMC a 10 Hz, só para alimentar a média móvel. São
-        // chamadas IOKit diretas e custam praticamente nada.
+    /// Liga as leituras do SMC a 10 Hz, que alimentam a média do diagrama.
+    /// Só fazem falta com o painel à vista; fechado, a app fica a 1 Hz.
+    func setFastSampling(_ on: Bool) {
+        guard on != isSamplingFast else { return }
+        smoother.setFast(on)
+        railTimer?.invalidate()
+        railTimer = nil
+        guard on else { return }
+
+        // São chamadas IOKit diretas e custam praticamente nada.
         let railTimer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
             guard let self else { return }
-            Task { @MainActor in self.smoother.add(PowerSampler.sampleRails()) }
+            Task { @MainActor in self.smoother.addFast(PowerSampler.sampleRails()) }
         }
+        // .common para o diagrama não congelar enquanto há um menu aberto.
+        RunLoop.main.add(railTimer, forMode: .common)
+        self.railTimer = railTimer
+    }
+
+    private func start() {
         // Publicação para a interface a 1 Hz, que é quando a bateria também
         // é lida — essa leitura constrói um dicionário inteiro e é bem mais cara.
         let snapshotTimer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
             guard let self else { return }
-            Task { @MainActor in self.sample() }
+            Task { @MainActor in self.tick() }
         }
-        // .common para o diagrama não congelar enquanto há um menu aberto.
-        RunLoop.main.add(railTimer, forMode: .common)
         RunLoop.main.add(snapshotTimer, forMode: .common)
-        self.railTimer = railTimer
         self.snapshotTimer = snapshotTimer
 
         let context = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
         if let source = IOPSNotificationCreateRunLoopSource({ context in
             guard let context else { return }
             let monitor = Unmanaged<PowerMonitor>.fromOpaque(context).takeUnretainedValue()
-            Task { @MainActor in monitor.sample() }
+            Task { @MainActor in monitor.publish() }
         }, context)?.takeRetainedValue() {
             CFRunLoopAddSource(CFRunLoopGetMain(), source, .defaultMode)
             runLoopSource = source
         }
     }
 
-    private func sample() {
+    /// O passo de 1 Hz: uma leitura para a média lenta e uma publicação.
+    private func tick() {
+        smoother.addSlow(PowerSampler.sampleRails())
+        publish()
+    }
+
+    private func publish() {
         // Estado da bateria do instante, potências da média móvel. O
         // histórico recebe o mesmo valor que o diagrama, para o pico do
         // gráfico não contradizer o número mostrado nos nós.
         var fresh = PowerSnapshot()
         fresh.battery = BatteryReader.read()
+        if fresh.source != snapshot.source { smoother.sourceChanged() }
         fresh.apply(smoother.average)
         fresh.isAligned = smoother.isAligned
+        fresh.isSettled = smoother.isSettled
         fresh.batteryMagnitude = abs(fresh.battery.voltage * fresh.battery.amperage)
 
         snapshot = fresh

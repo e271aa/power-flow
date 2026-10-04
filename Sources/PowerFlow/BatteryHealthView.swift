@@ -5,6 +5,8 @@ import SwiftUI
 struct BatteryHealthView: View {
     let battery: BatteryInfo
     let temperature: Double?
+    /// O tempo a mostrar, já decidido pelo `PanelState`.
+    let time: PanelState.Time
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
@@ -43,8 +45,8 @@ struct BatteryHealthView: View {
                 .padding(.top, 1)
             }
 
-            if let minutes = battery.minutesRemaining {
-                Text(remainingText(minutes))
+            if let timeText {
+                Text(timeText)
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
             }
@@ -62,10 +64,17 @@ struct BatteryHealthView: View {
         }
     }
 
-    private func remainingText(_ minutes: Int) -> String {
+    private var timeText: String? {
+        switch time {
+        case .none:                       return nil
+        case .remaining(let minutes):     return "\(duration(minutes)) restantes"
+        case .untilFull(let minutes):     return "\(duration(minutes)) até carregar"
+        }
+    }
+
+    private func duration(_ minutes: Int) -> String {
         let hours = minutes / 60
         let rest = minutes % 60
-        let duration = hours > 0 ? "\(hours) h \(rest) min" : "\(rest) min"
-        return battery.isCharging ? "\(duration) até carregar" : "\(duration) restantes"
+        return hours > 0 ? "\(hours) h \(rest) min" : "\(rest) min"
     }
 }

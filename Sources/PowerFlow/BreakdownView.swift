@@ -6,34 +6,25 @@ import SwiftUI
 /// É o que o AlDente não mostra: não só quanto a máquina consome, mas
 /// que parte dela está a consumir.
 struct BreakdownView: View {
-    let snapshot: PowerSnapshot
+    let slices: [BreakdownSlice]
 
-    private struct Slice: Identifiable {
-        let id = UUID()
-        let label: String
-        let watts: Double
-        let color: Color
+    private func label(_ kind: BreakdownSlice.Kind) -> String {
+        switch kind {
+        case .soc:      return "SoC (CPU/GPU)"
+        case .mainRail: return "Ecrã e I/O"
+        case .other:    return "Outros"
+        }
     }
 
-    private var slices: [Slice] {
-        var result: [Slice] = []
-        if let soc = snapshot.socPower {
-            result.append(Slice(label: "SoC (CPU/GPU)", watts: soc,
-                                color: Color(red: 0.55, green: 0.45, blue: 0.95)))
+    private func color(_ kind: BreakdownSlice.Kind) -> Color {
+        switch kind {
+        case .soc:      return Color(red: 0.55, green: 0.45, blue: 0.95)
+        case .mainRail: return Color(red: 0.30, green: 0.70, blue: 0.85)
+        case .other:    return Color.secondary.opacity(0.45)
         }
-        if let main = snapshot.mainRailPower {
-            result.append(Slice(label: "Ecrã e I/O", watts: main,
-                                color: Color(red: 0.30, green: 0.70, blue: 0.85)))
-        }
-        if let other = snapshot.otherPower, other > 0.1 {
-            result.append(Slice(label: "Outros", watts: other,
-                                color: Color.secondary.opacity(0.45)))
-        }
-        return result
     }
 
     var body: some View {
-        let slices = slices
         let total = max(slices.reduce(0) { $0 + $1.watts }, 0.001)
 
         if !slices.isEmpty {
@@ -48,19 +39,18 @@ struct BreakdownView: View {
                     HStack(spacing: 2) {
                         ForEach(slices) { slice in
                             RoundedRectangle(cornerRadius: 2, style: .continuous)
-                                .fill(slice.color)
+                                .fill(color(slice.kind))
                                 .frame(width: max(proxy.size.width * slice.watts / total - 2, 2))
                         }
                     }
                 }
                 .frame(height: 8)
-                .animation(.easeOut(duration: 0.45), value: total)
 
                 HStack(spacing: 12) {
                     ForEach(slices) { slice in
                         HStack(spacing: 4) {
-                            Circle().fill(slice.color).frame(width: 6, height: 6)
-                            Text(slice.label)
+                            Circle().fill(color(slice.kind)).frame(width: 6, height: 6)
+                            Text(label(slice.kind))
                                 .font(.system(size: 10))
                                 .foregroundStyle(.secondary)
                             Text(String(format: "%.1f W", slice.watts))
