@@ -1,3 +1,4 @@
+import PowerFlowCore
 import SwiftUI
 
 enum FlowNode: Hashable {
@@ -5,9 +6,9 @@ enum FlowNode: Hashable {
 
     var title: String {
         switch self {
-        case .adapter: return "Adaptador"
-        case .battery: return "Bateria"
-        case .system:  return "Sistema"
+        case .adapter: return L10n.string("n_adapter")
+        case .battery: return L10n.string("n_battery")
+        case .system:  return L10n.string("n_system")
         }
     }
 

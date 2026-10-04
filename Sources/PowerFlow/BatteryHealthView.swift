@@ -7,10 +7,11 @@ struct BatteryHealthView: View {
     let temperature: Double?
     /// O tempo a mostrar, já decidido pelo `PanelState`.
     let time: PanelState.Time
+    private let format = PFFormat()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            Text("Bateria")
+            Text(L10n.string("n_battery"))
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
@@ -19,15 +20,15 @@ struct BatteryHealthView: View {
             // Grelha de duas colunas: o suficiente para caber sem apertar.
             HStack(alignment: .top, spacing: 18) {
                 VStack(alignment: .leading, spacing: 5) {
-                    metric("Carga", "\(battery.percentage) %")
-                    metric("Ciclos", "\(battery.cycleCount)")
+                    metric(L10n.string("v1_charge"), format.percent(battery.percentage))
+                    metric(L10n.string("b_cycles"), format.integer(battery.cycleCount))
                 }
                 VStack(alignment: .leading, spacing: 5) {
                     if let health = battery.healthPercent {
-                        metric("Saúde", String(format: "%.0f %%", health))
+                        metric(L10n.string("b_health"), format.percent(health))
                     }
                     if let temperature {
-                        metric("Temperatura", String(format: "%.1f °C", temperature))
+                        metric(L10n.string("b_temp"), format.celsius(temperature))
                     }
                 }
                 Spacer(minLength: 0)
@@ -67,14 +68,8 @@ struct BatteryHealthView: View {
     private var timeText: String? {
         switch time {
         case .none:                       return nil
-        case .remaining(let minutes):     return "\(duration(minutes)) restantes"
-        case .untilFull(let minutes):     return "\(duration(minutes)) até carregar"
+        case .remaining(let minutes):     return L10n.string("st_left", format.duration(minutes: minutes))
+        case .untilFull(let minutes):     return L10n.string("st_charging", format.duration(minutes: minutes))
         }
-    }
-
-    private func duration(_ minutes: Int) -> String {
-        let hours = minutes / 60
-        let rest = minutes % 60
-        return hours > 0 ? "\(hours) h \(rest) min" : "\(rest) min"
     }
 }

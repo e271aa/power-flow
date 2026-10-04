@@ -22,11 +22,18 @@ rm -rf "$BUNDLE"
 mkdir -p "${BUNDLE}/Contents/MacOS" "${BUNDLE}/Contents/Resources"
 cp "$BINARY" "${BUNDLE}/Contents/MacOS/${APP_NAME}"
 
+# Textos PT-PT e EN: a única cópia está em Sources/PowerFlowCore/Resources.
+# Na app lêem-se daqui; em `swift run` e nos testes, do bundle de recursos do SwiftPM.
+cp -R Sources/PowerFlowCore/Resources/*.lproj "${BUNDLE}/Contents/Resources/"
+
 cat > "${BUNDLE}/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>CFBundleDevelopmentRegion</key><string>pt-PT</string>
+    <key>CFBundleLocalizations</key>
+    <array><string>pt-PT</string><string>en</string></array>
     <key>CFBundleName</key><string>${APP_NAME}</string>
     <key>CFBundleDisplayName</key><string>${APP_NAME}</string>
     <key>CFBundleIdentifier</key><string>local.powerflow.${APP_NAME}</string>

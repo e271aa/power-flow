@@ -36,11 +36,10 @@ struct ContentView: View {
 
     private var unavailable: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Label("Sensores indisponíveis", systemImage: "exclamationmark.triangle.fill")
+            Label(L10n.string("u_title"), systemImage: "exclamationmark.triangle.fill")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.orange)
-            Text("Não foi possível ler as chaves de potência do SMC neste Mac. "
-                 + "Corre `PowerFlow --dump` no Terminal para ver o diagnóstico.")
+            Text(L10n.string("u_body"))
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -54,7 +53,7 @@ struct ContentView: View {
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
             Spacer()
-            Button("Sair") { NSApplication.shared.terminate(nil) }
+            Button(L10n.string("m_quit")) { NSApplication.shared.terminate(nil) }
                 .buttonStyle(.plain)
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
@@ -64,10 +63,10 @@ struct ContentView: View {
     private var sourceLabel: String {
         switch monitor.panel.origin {
         case .battery:
-            return "A funcionar com bateria"
+            return L10n.string("v1_source_battery")
         case .mains, .adapter, .adapterAndBattery:
             let name = monitor.snapshot.battery.adapterName
-            return name.isEmpty ? "Ligado à corrente" : name
+            return name.isEmpty ? L10n.string("v1_source_mains") : name
         }
     }
 }

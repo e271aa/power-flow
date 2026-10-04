@@ -1,0 +1,190 @@
+/* PowerFlow 2 — pt-PT. Gerado de powerflow-data.json. Argumentos %@ por ordem indicada no comentário. */
+
+/* ── Painel — cabeçalho ── */
+"hero_now" = "Consumo agora";
+"hero_measuring" = "A medir…";
+"src_adapter" = "Do adaptador";
+"src_both" = "Do adaptador e da bateria";
+"src_battery" = "Da bateria";
+"src_mains" = "Da corrente";
+/* args: t */
+"st_charging" = "a carregar, 100 % em %@";
+/* args: p */
+"st_paused" = "carga em pausa aos %@";
+/* args: t */
+"st_left" = "%@ restantes";
+/* args: n */
+"st_settling" = "valores estáveis dentro de %@ s";
+"more_vo" = "Mais opções";
+
+/* ── Painel — avisos ── */
+"ban_optimized" = "Carga otimizada da Apple: termina perto da hora a que costumas desligar o cabo.";
+/* args: c */
+"ban_temp" = "Pausa por temperatura: a bateria está a %@. A carga retoma quando arrefecer.";
+/* args: r, s */
+"ban_weak" = "O adaptador de %1$@ não chega para carregar enquanto o Mac gasta %2$@.";
+"ban_standby" = "Carga em espera. O macOS retoma-a sozinho.";
+"ban_assist_t" = "A bateria está a ajudar";
+/* args: s, r, i */
+"ban_assist" = "O Mac pede %1$@ e o adaptador de %2$@ só dá %3$@. Um adaptador mais potente evita a descarga.";
+
+/* ── Diagrama e VoiceOver ── */
+"n_adapter" = "Adaptador";
+"n_battery" = "Bateria";
+"n_system" = "Sistema";
+"n_unplugged" = "Desligado";
+"n_paused" = "Em pausa";
+/* args: w */
+"vo_adapter" = "Adaptador, %@ a entrar";
+"vo_adapter_off" = "Adaptador desligado";
+/* args: p, w */
+"vo_battery_in" = "Bateria, %1$@, a carregar a %2$@";
+/* args: p, w */
+"vo_battery_out" = "Bateria, %1$@, a fornecer %2$@";
+/* args: p */
+"vo_battery_idle" = "Bateria, %@, carga em pausa";
+/* args: w */
+"vo_system" = "Sistema, a consumir %@";
+/* args: w */
+"vo_flow_ad_sys" = "Do adaptador para o sistema: %@";
+/* args: w */
+"vo_flow_ad_bat" = "Do adaptador para a bateria: %@";
+/* args: w */
+"vo_flow_bat_sys" = "Da bateria para o sistema: %@";
+
+/* ── Repartição ── */
+"bd_title" = "Onde se gasta";
+"bd_soc" = "SoC (CPU/GPU)";
+"bd_main" = "Ecrã e I/O";
+"bd_rest" = "Resto da placa";
+"bd_byapp" = "Por app";
+"bd_rest_note" = "Resto: memória, SSD, rádios e perdas de conversão.";
+
+/* ── Histórico ── */
+"h_title" = "Histórico";
+"h_2m" = "2 min";
+"h_1h" = "1 h";
+"h_24h" = "24 h";
+"h_avg" = "Média";
+"h_peak" = "Pico";
+/* args: t */
+"h_at" = "às %@";
+/* args: t */
+"h_ago" = "há %@";
+"h_now" = "agora";
+"h_sys" = "Sistema";
+"h_ad" = "Adaptador";
+"h_bat" = "Bateria";
+/* args: t */
+"h_fresh" = "Só há %@ de histórico; o resto preenche-se à medida que o PowerFlow mede.";
+"h_sleep" = "Mac em repouso";
+"h_24h_off" = "Disponível depois de 1 h de dados";
+
+/* ── Navegação ── */
+"r_apps" = "Consumo por app";
+/* args: a, n */
+"r_apps_sub" = "%1$@ e mais %2$@";
+"r_batt" = "Bateria";
+/* args: h, c */
+"r_batt_sub" = "Saúde %1$@ · %2$@ ciclos";
+"back" = "Voltar";
+
+/* ── Consumo por app ── */
+"a_title" = "Consumo por app";
+"a_sub" = "Média dos últimos 5 min";
+"a_other" = "Sistema e outros";
+"a_other_note" = "Ecrã, serviços do macOS e processos de outros utilizadores, que só se separam com privilégios de administrador.";
+"a_total" = "Consumo do sistema";
+"a_est" = "Valores por app estimados a partir da energia de CPU e GPU de cada processo.";
+
+/* ── Bateria (detalhe) ── */
+"b_health" = "Saúde";
+/* args: a, b */
+"b_cap" = "%1$@ de %2$@ mAh";
+"b_cycles" = "Ciclos";
+"b_temp" = "Temperatura";
+"b_adapter" = "Adaptador";
+"b_until" = "Até 100 %";
+"b_left" = "Restante";
+"b_why" = "Porque não está a carregar";
+/* args: w */
+"b_state_in" = "A carregar a %@";
+/* args: w */
+"b_state_out" = "A fornecer %@ ao sistema";
+"b_state_paused" = "Carga em pausa";
+
+/* ── Sensores indisponíveis ── */
+"u_title" = "Sensores indisponíveis";
+"u_body" = "Este Mac não expõe as leituras de potência que o PowerFlow conhece — talvez seja um chip mais recente do que a app. A informação da bateria continua disponível.";
+"u_copy" = "Copiar diagnóstico";
+"u_report" = "Reportar no GitHub";
+
+/* ── Primeiro arranque ── */
+"f_title" = "O que estás a ver";
+"f_body" = "Para onde vai a energia do Mac, em watts. A espessura de cada ligação é o caudal; a seta, o sentido.";
+"f_ad" = "o que entra pelo adaptador";
+"f_bat" = "o que entra ou sai da bateria";
+"f_sys" = "o que o sistema gasta";
+"f_readonly" = "O PowerFlow só lê sensores. Não altera a carga da bateria nem pede palavra-passe.";
+"f_ok" = "Percebi";
+
+/* ── Menus ── */
+"m_open" = "Abrir PowerFlow";
+"m_settings" = "Definições…";
+"m_about" = "Acerca do PowerFlow";
+"m_quit" = "Sair do PowerFlow";
+
+/* ── Definições ── */
+"s_title" = "Definições do PowerFlow";
+"s_general" = "Geral";
+"s_login" = "Abrir ao iniciar sessão";
+"s_lang" = "Língua";
+/* args: l (nome da língua, vem da locale) */
+"s_lang_val" = "Igual ao sistema (%@)";
+"s_lang_btn" = "Idioma e região…";
+"s_bar" = "Barra de menus";
+"s_bar_icon" = "Só ícone";
+"s_bar_iw" = "Ícone e watts";
+"s_bar_ip" = "Ícone e %";
+"s_bar_w" = "Só watts";
+"s_measure" = "Medição";
+"s_rate" = "Frequência de amostragem";
+"s_rate_low" = "Baixa";
+"s_rate_norm" = "Normal";
+"s_rate_high" = "Alta";
+"s_rate_note" = "Normal lê 2 vezes por segundo. Alta lê 10 vezes e suaviza o gráfico de 2 min, com um pequeno custo de energia. Com o painel fechado, o PowerFlow lê 1 vez por segundo.";
+"s_alerts" = "Alertas";
+"s_al_assist" = "Bateria a ajudar com o cabo ligado";
+"s_al_after" = "Avisar depois de";
+"s_al_temp" = "Bateria quente";
+"s_al_above" = "Acima de";
+"s_al_weak" = "Adaptador abaixo do pedido";
+"s_al_weak_sub" = "Quando o adaptador impede a carga";
+"s_al_note" = "Som e estilo seguem as definições de Notificações do macOS.";
+"s_al_btn" = "Notificações…";
+"s_about" = "Sobre";
+"s_version" = "Versão";
+"s_source" = "Código-fonte";
+
+/* ── Notificações ── */
+"n_assist_t" = "A bateria está a ajudar o adaptador";
+/* args: s, r */
+"n_assist_b" = "O Mac pede %1$@ e o adaptador dá %2$@. Liga um adaptador mais potente.";
+/* args: c */
+"n_temp_t" = "Bateria quente: %@";
+"n_temp_b" = "A carga parou até arrefecer. Deixa as saídas de ar livres.";
+"n_weak_t" = "Adaptador fraco para este uso";
+/* args: r, s */
+"n_weak_b" = "O adaptador de %1$@ não chega para carregar enquanto o Mac gasta %2$@.";
+"n_now" = "agora";
+
+/* ── Provisórios da v1 (saem nas Fases 4 e 5, quando as vistas forem refeitas) ── */
+"v1_charge" = "Carga";
+/* args: n */
+"v1_last" = "Últimos %@ s";
+"v1_source_battery" = "A funcionar com bateria";
+"v1_source_mains" = "Ligado à corrente";
+"v1_charging" = "a carregar";
+"v1_supplying" = "a descarregar";
+/* args: w */
+"tt_status" = "PowerFlow — %@ consumidos";

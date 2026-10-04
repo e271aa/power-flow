@@ -1,0 +1,190 @@
+/* PowerFlow 2 — en. Gerado de powerflow-data.json. Argumentos %@ por ordem indicada no comentário. */
+
+/* ── Painel — cabeçalho ── */
+"hero_now" = "Using now";
+"hero_measuring" = "Measuring…";
+"src_adapter" = "From the adapter";
+"src_both" = "From adapter and battery";
+"src_battery" = "From the battery";
+"src_mains" = "From mains power";
+/* args: t */
+"st_charging" = "charging, full in %@";
+/* args: p */
+"st_paused" = "charging paused at %@";
+/* args: t */
+"st_left" = "%@ left";
+/* args: n */
+"st_settling" = "stable values in %@ s";
+"more_vo" = "More options";
+
+/* ── Painel — avisos ── */
+"ban_optimized" = "Apple’s Optimized Charging finishes near the time you usually unplug.";
+/* args: c */
+"ban_temp" = "Paused for heat: the battery is at %@. Charging resumes once it cools.";
+/* args: r, s */
+"ban_weak" = "The %1$@ adapter can’t charge while the Mac uses %2$@.";
+"ban_standby" = "Charging on hold. macOS resumes it by itself.";
+"ban_assist_t" = "The battery is helping";
+/* args: s, r, i */
+"ban_assist" = "The Mac needs %1$@; the %2$@ adapter gives %3$@. A stronger adapter stops the drain.";
+
+/* ── Diagrama e VoiceOver ── */
+"n_adapter" = "Adapter";
+"n_battery" = "Battery";
+"n_system" = "System";
+"n_unplugged" = "Unplugged";
+"n_paused" = "Paused";
+/* args: w */
+"vo_adapter" = "Adapter, %@ in";
+"vo_adapter_off" = "Adapter unplugged";
+/* args: p, w */
+"vo_battery_in" = "Battery, %1$@, charging at %2$@";
+/* args: p, w */
+"vo_battery_out" = "Battery, %1$@, supplying %2$@";
+/* args: p */
+"vo_battery_idle" = "Battery, %@, charging paused";
+/* args: w */
+"vo_system" = "System, using %@";
+/* args: w */
+"vo_flow_ad_sys" = "Adapter to system: %@";
+/* args: w */
+"vo_flow_ad_bat" = "Adapter to battery: %@";
+/* args: w */
+"vo_flow_bat_sys" = "Battery to system: %@";
+
+/* ── Repartição ── */
+"bd_title" = "Where it goes";
+"bd_soc" = "SoC (CPU/GPU)";
+"bd_main" = "Display & I/O";
+"bd_rest" = "Rest of board";
+"bd_byapp" = "By app";
+"bd_rest_note" = "Rest: memory, SSD, radios and conversion losses.";
+
+/* ── Histórico ── */
+"h_title" = "History";
+"h_2m" = "2 min";
+"h_1h" = "1 h";
+"h_24h" = "24 h";
+"h_avg" = "Average";
+"h_peak" = "Peak";
+/* args: t */
+"h_at" = "at %@";
+/* args: t */
+"h_ago" = "%@ ago";
+"h_now" = "now";
+"h_sys" = "System";
+"h_ad" = "Adapter";
+"h_bat" = "Battery";
+/* args: t */
+"h_fresh" = "Only %@ of history so far; the rest fills in as PowerFlow measures.";
+"h_sleep" = "Mac asleep";
+"h_24h_off" = "Available after 1 h of data";
+
+/* ── Navegação ── */
+"r_apps" = "Energy by app";
+/* args: a, n */
+"r_apps_sub" = "%1$@ and %2$@ more";
+"r_batt" = "Battery";
+/* args: h, c */
+"r_batt_sub" = "Health %1$@ · %2$@ cycles";
+"back" = "Back";
+
+/* ── Consumo por app ── */
+"a_title" = "Energy by app";
+"a_sub" = "Average over the last 5 min";
+"a_other" = "System & other";
+"a_other_note" = "Display, macOS services and other users’ processes, which can only be split with admin rights.";
+"a_total" = "System total";
+"a_est" = "Per-app values are estimated from each process’s CPU and GPU energy.";
+
+/* ── Bateria (detalhe) ── */
+"b_health" = "Health";
+/* args: a, b */
+"b_cap" = "%1$@ of %2$@ mAh";
+"b_cycles" = "Cycles";
+"b_temp" = "Temperature";
+"b_adapter" = "Adapter";
+"b_until" = "Until full";
+"b_left" = "Remaining";
+"b_why" = "Why it isn’t charging";
+/* args: w */
+"b_state_in" = "Charging at %@";
+/* args: w */
+"b_state_out" = "Supplying %@ to the system";
+"b_state_paused" = "Charging paused";
+
+/* ── Sensores indisponíveis ── */
+"u_title" = "Sensors unavailable";
+"u_body" = "This Mac doesn’t expose the power readings PowerFlow knows — it may be a newer chip than the app. Battery info is still available.";
+"u_copy" = "Copy Diagnostics";
+"u_report" = "Report on GitHub";
+
+/* ── Primeiro arranque ── */
+"f_title" = "What you’re looking at";
+"f_body" = "Where your Mac’s power goes, in watts. Each link’s thickness is the flow; the arrow is its direction.";
+"f_ad" = "what comes in from the adapter";
+"f_bat" = "what goes into or out of the battery";
+"f_sys" = "what the system uses";
+"f_readonly" = "PowerFlow only reads sensors. It never changes how the battery charges and needs no password.";
+"f_ok" = "Got It";
+
+/* ── Menus ── */
+"m_open" = "Open PowerFlow";
+"m_settings" = "Settings…";
+"m_about" = "About PowerFlow";
+"m_quit" = "Quit PowerFlow";
+
+/* ── Definições ── */
+"s_title" = "PowerFlow Settings";
+"s_general" = "General";
+"s_login" = "Open at login";
+"s_lang" = "Language";
+/* args: l (language name, from the locale) */
+"s_lang_val" = "Same as system (%@)";
+"s_lang_btn" = "Language & Region…";
+"s_bar" = "Menu bar";
+"s_bar_icon" = "Icon only";
+"s_bar_iw" = "Icon and watts";
+"s_bar_ip" = "Icon and %";
+"s_bar_w" = "Watts only";
+"s_measure" = "Measurement";
+"s_rate" = "Sampling rate";
+"s_rate_low" = "Low";
+"s_rate_norm" = "Normal";
+"s_rate_high" = "High";
+"s_rate_note" = "Normal reads twice a second. High reads 10 times and smooths the 2-min chart, at a small energy cost. With the panel closed, PowerFlow reads once a second.";
+"s_alerts" = "Alerts";
+"s_al_assist" = "Battery helping while plugged in";
+"s_al_after" = "Notify after";
+"s_al_temp" = "Battery hot";
+"s_al_above" = "Above";
+"s_al_weak" = "Adapter below demand";
+"s_al_weak_sub" = "When the adapter prevents charging";
+"s_al_note" = "Sound and style follow macOS Notifications settings.";
+"s_al_btn" = "Notifications…";
+"s_about" = "About";
+"s_version" = "Version";
+"s_source" = "Source code";
+
+/* ── Notificações ── */
+"n_assist_t" = "The battery is backing up the adapter";
+/* args: s, r */
+"n_assist_b" = "Your Mac needs %1$@; the adapter gives %2$@. Use a stronger adapter.";
+/* args: c */
+"n_temp_t" = "Battery hot: %@";
+"n_temp_b" = "Charging stopped until it cools. Keep the vents clear.";
+"n_weak_t" = "Adapter too weak for this load";
+/* args: r, s */
+"n_weak_b" = "The %1$@ adapter can’t charge while your Mac uses %2$@.";
+"n_now" = "now";
+
+/* ── v1 placeholders (removed in Phases 4 and 5, when the views are rebuilt) ── */
+"v1_charge" = "Charge";
+/* args: n */
+"v1_last" = "Last %@ s";
+"v1_source_battery" = "Running on battery";
+"v1_source_mains" = "Plugged in";
+"v1_charging" = "charging";
+"v1_supplying" = "discharging";
+/* args: w */
+"tt_status" = "PowerFlow — %@ used";

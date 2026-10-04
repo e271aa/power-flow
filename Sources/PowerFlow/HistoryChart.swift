@@ -10,13 +10,13 @@ struct HistoryChart: View {
         if samples.count > 2 {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text("Últimos \(samples.count)s")
+                    Text(L10n.string("v1_last", PFFormat().integer(samples.count)))
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .textCase(.uppercase)
                         .kerning(0.4)
                     Spacer()
-                    Text(String(format: "pico %.1f W", samples.map(\.systemTotal).max() ?? 0))
+                    Text(L10n.string("h_peak") + " " + PFFormat().watts(samples.map(\.systemTotal).max() ?? 0))
                         .font(.system(size: 10, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(.tertiary)

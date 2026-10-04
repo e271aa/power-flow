@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "PowerFlow",
+    defaultLocalization: "pt-PT",
     platforms: [.macOS(.v13)],
     targets: [
         // Camada C: fala com o AppleSMC. É C porque o layout da struct do
@@ -16,6 +17,8 @@ let package = Package(
         .target(
             name: "PowerFlowCore",
             dependencies: ["CSMC"],
+            // Os .lproj com os textos PT-PT e EN. O build.sh copia-os também para o bundle da app.
+            resources: [.process("Resources")],
             linkerSettings: [.linkedFramework("IOKit")]
         ),
         // Executável + UI SwiftUI.

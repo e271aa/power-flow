@@ -103,10 +103,10 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
         // Sem espaço entre o número e a unidade, e sem casas decimais: numa
         // barra de menus disputada, cada ponto de largura conta.
         let watts = snapshot.systemTotal ?? 0
-        let title = String(format: "%.0fW", watts)
+        let title = PFFormat().wattsValue(watts, decimals: 0) + "W"
         if button.title != title { button.title = title }
 
-        let toolTip = "PowerFlow — \(String(format: "%.1f W", watts)) consumidos"
+        let toolTip = L10n.string("tt_status", PFFormat().watts(watts))
         if button.toolTip != toolTip { button.toolTip = toolTip }
     }
 

@@ -129,12 +129,12 @@ struct FlowDiagram: View {
         case .adapter:
             // A potência máxima do adaptador já aparece no rodapé; repeti-la
             // aqui punha texto por cima da aresta que desce para a bateria.
-            return panel.origin == .battery ? "desligado" : nil
+            return panel.origin == .battery ? L10n.string("n_unplugged") : nil
         case .battery:
             switch panel.batteryActivity {
-            case .charging:  return "a carregar"
-            case .supplying: return "a descarregar"
-            case .idle:      return "\(snapshot.battery.percentage) %"
+            case .charging:  return L10n.string("v1_charging")
+            case .supplying: return L10n.string("v1_supplying")
+            case .idle:      return PFFormat().percent(snapshot.battery.percentage)
             }
         case .system:
             return nil
@@ -170,7 +170,7 @@ private struct NodeBadge: View {
                     Image(systemName: node.symbol)
                         .font(.system(size: radius * 0.42, weight: .medium))
                         .foregroundStyle(node.tint.opacity(isDimmed ? 0.4 : 0.95))
-                    Text(isDimmed ? "—" : String(format: "%.1f", watts))
+                    Text(isDimmed ? "—" : PFFormat().wattsValue(watts))
                         .font(.system(size: radius * 0.44, weight: .semibold, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(isDimmed ? .secondary : .primary)
