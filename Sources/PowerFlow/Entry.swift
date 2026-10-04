@@ -19,6 +19,23 @@ enum Entry {
             Diagnostics.dump()
             exit(0)
         }
+        if arguments.contains("--dump-history") {
+            // O que está guardado das últimas 24 h, sem abrir a app.
+            let url = HistoryStore.defaultFileURL
+            let store = HistoryStore(fileURL: url)
+            let series = store.series(for: .day)
+            let format = PFFormat()
+            print("ficheiro   : \(url.path)\(FileManager.default.fileExists(atPath: url.path) ? "" : " (não existe)")")
+            print("pontos     : \(store.points(.day).count) fechados, \(series.samples.count) à vista em 24 h")
+            print("cobertura  : \(format.duration(minutes: Int(store.coverage() / 60)))")
+            print("lacunas    : \(series.gaps.count)")
+            if let first = series.samples.first, let last = series.samples.last {
+                print("primeiro   : \(format.clock(first.time)) · \(format.watts(first.system))")
+                print("último     : \(format.clock(last.time)) · \(format.watts(last.system))")
+            }
+            print("24 h       : \(store.isAvailable(.day) ? "disponível" : "ainda não (pede 1 h de dados)")")
+            exit(0)
+        }
         if arguments.contains("--dump-keys") {
             Diagnostics.dumpAllPowerKeys()
             exit(0)
@@ -57,13 +74,25 @@ enum Entry {
                 }
                 options.appearance = appearance
             }
-            if let name = value(after: "--view") {
+            if value(after: "--view") == "history" {
+                options.onlyHistory = true
+            } else if let name = value(after: "--view") {
                 guard let route = Snapshotter.routes[name] else {
                     print("Vista desconhecida: \(name). Vistas: "
-                        + Snapshotter.routes.keys.sorted().joined(separator: ", "))
+                        + (Snapshotter.routes.keys + ["history"]).sorted().joined(separator: ", "))
                     exit(2)
                 }
                 options.route = route
+            }
+            options.isFresh = arguments.contains("--fresh")
+            options.pointer = value(after: "--pointer").flatMap(Double.init)
+            if let name = value(after: "--period") {
+                guard let period = HistoryPeriod(rawValue: name) else {
+                    print("Período desconhecido: \(name). Períodos: "
+                        + HistoryPeriod.allCases.map(\.rawValue).joined(separator: ", "))
+                    exit(2)
+                }
+                options.period = period
             }
             if let name = value(after: "--without") {
                 guard let missing = Snapshotter.Missing(rawValue: name) else {

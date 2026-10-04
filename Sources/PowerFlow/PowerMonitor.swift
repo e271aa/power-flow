@@ -12,7 +12,8 @@ final class PowerMonitor: ObservableObject {
     @Published private(set) var snapshot = PowerSnapshot()
     @Published private(set) var isAvailable = false
 
-    let history = PowerHistory()
+    /// O histórico nos três períodos. Só a app da barra o grava em disco.
+    let history: HistoryStore
 
     /// O estado do painel para o instantâneo atual. As vistas recebem este.
     var panel: PanelState {
@@ -29,7 +30,10 @@ final class PowerMonitor: ObservableObject {
 
     var isSamplingFast: Bool { railTimer != nil }
 
-    init() {
+    /// `persistsHistory`: lê e grava as 24 h em disco. As ferramentas de linha
+    /// de comandos e a janela `--window` ficam só com a memória.
+    init(persistsHistory: Bool = false) {
+        history = HistoryStore(fileURL: persistsHistory ? HistoryStore.defaultFileURL : nil)
         isAvailable = SMCCatalog.shared.prepare()
         tick()
         start()
@@ -95,7 +99,23 @@ final class PowerMonitor: ObservableObject {
         fresh.batteryMagnitude = abs(fresh.battery.voltage * fresh.battery.amperage)
 
         snapshot = fresh
-        history.append(fresh)
+        // Sem leitura do consumo não há ponto: fica uma lacuna, não um zero.
+        if let system = fresh.systemTotal {
+            let adapter = fresh.source == .adapter && fresh.battery.isPresent ? fresh.adapterInput : nil
+            // Fechou um intervalo de 10 min: é a altura de gravar.
+            if history.append(system: system, adapter: adapter, at: fresh.timestamp) {
+                saveHistory()
+            }
+        }
+    }
+
+    /// Grava as 24 h. Chama-se de 10 em 10 min e ao sair.
+    func saveHistory() {
+        do {
+            try history.save()
+        } catch {
+            NSLog("PowerFlow: não foi possível gravar o histórico: \(error.localizedDescription)")
+        }
     }
 
     deinit {

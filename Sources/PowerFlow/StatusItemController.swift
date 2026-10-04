@@ -38,7 +38,7 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
     var forceReduceMotion = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let monitor = PowerMonitor()
+        let monitor = PowerMonitor(persistsHistory: true)
         self.monitor = monitor
 
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -92,6 +92,11 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
                 NSApp.terminate(nil)
             }
         }
+    }
+
+    /// Ao sair, o intervalo de 10 min que ia a meio fica guardado.
+    func applicationWillTerminate(_ notification: Notification) {
+        monitor?.saveHistory()
     }
 
     private func refresh(with snapshot: PowerSnapshot) {

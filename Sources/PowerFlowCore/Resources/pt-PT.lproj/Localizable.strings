@@ -79,6 +79,14 @@
 "h_fresh" = "Só há %@ de histórico; o resto preenche-se à medida que o PowerFlow mede.";
 "h_sleep" = "Mac em repouso";
 "h_24h_off" = "Disponível depois de 1 h de dados";
+/* args: p, m, w, t (período, média, pico, quando) */
+"vo_hist" = "Histórico, período de %1$@. Sistema: média %2$@, pico %3$@ %4$@.";
+/* args: m */
+"vo_hist_ad" = "Adaptador: média %@.";
+"vo_hist_gap" = "Há intervalos sem dados.";
+"vo_hist_empty" = "Histórico ainda sem dados.";
+"vo_hist_x" = "Tempo";
+"vo_hist_y" = "Potência em watts";
 
 /* ── Navegação ── */
 "r_apps" = "Consumo por app";
@@ -179,7 +187,5 @@
 "n_now" = "agora";
 
 /* ── Provisórios da v1 (saem nas Fases 5 e 6, quando as vistas forem refeitas) ── */
-/* args: n */
-"v1_last" = "Últimos %@ s";
 /* args: w */
 "tt_status" = "PowerFlow — %@ consumidos";

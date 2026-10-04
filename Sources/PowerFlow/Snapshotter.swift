@@ -21,6 +21,14 @@ enum Snapshotter {
         var route: PanelRoute = .main
         /// Tira uma leitura ao estado, para ver o painel num Mac que não a dá.
         var missing: Missing?
+        /// O período do histórico. `nil`: o que estiver guardado nas preferências.
+        var period: HistoryPeriod?
+        /// Histórico de 18 min, como nos primeiros minutos depois de instalar.
+        var isFresh = false
+        /// Desenha só a secção do histórico.
+        var onlyHistory = false
+        /// Onde pôr a leitura por ponteiro do histórico, de 0 (esquerda) a 1.
+        var pointer: Double?
     }
 
     enum Missing: String, CaseIterable {
@@ -39,7 +47,7 @@ enum Snapshotter {
     static func render(to path: String, options: Options) {
         var snapshot: PowerSnapshot
         let sensorsAvailable: Bool
-        let samples: [PowerHistory.Sample]
+        let history: HistoryStore
         if let state = options.state {
             snapshot = state.snapshot
             // Os números de bateria do protótipo, que o estado não traz.
@@ -49,7 +57,7 @@ enum Snapshotter {
                 snapshot.battery.cycleCount = 649
             }
             sensorsAvailable = state.sensorsAvailable
-            samples = state.history
+            history = state.history(fresh: options.isFresh, now: snapshot.timestamp)
         } else {
             let monitor = PowerMonitor()
             monitor.setFastSampling(true)
@@ -61,16 +69,27 @@ enum Snapshotter {
             }
             snapshot = monitor.snapshot
             sensorsAvailable = monitor.isAvailable
-            samples = monitor.history.recent(seconds: 120)
+            history = monitor.history
         }
         switch options.missing {
         case .soc:      snapshot.socPower = nil
         case .mainrail: snapshot.mainRailPower = nil
         case nil:       break
         }
-        let content = PanelScreen(route: options.route, snapshot: snapshot,
-                                  panel: PanelState(snapshot: snapshot, sensorsAvailable: sensorsAvailable),
-                                  samples: samples, open: { _ in }, back: {})
+        let content: AnyView
+        if options.onlyHistory {
+            content = AnyView(HistorySection(store: history, now: snapshot.timestamp,
+                                             forcedPeriod: options.period ?? .twoMinutes,
+                                             pointerPosition: options.pointer)
+                .padding(EdgeInsets(top: 10, leading: PFSpace.popoverMargin,
+                                    bottom: PFSpace.m, trailing: PFSpace.popoverMargin))
+                .frame(width: PanelContent.width))
+        } else {
+            content = AnyView(PanelScreen(
+                route: options.route, snapshot: snapshot,
+                panel: PanelState(snapshot: snapshot, sensorsAvailable: sensorsAvailable),
+                history: history, open: { _ in }, back: {}, historyPeriod: options.period))
+        }
 
         let appearance = options.appearance.flatMap { NSAppearance(named: $0) }
             ?? NSApplication.shared.effectiveAppearance

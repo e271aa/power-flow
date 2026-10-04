@@ -15,7 +15,7 @@ struct PanelView: View {
     var body: some View {
         ZStack(alignment: .top) {
             PanelScreen(route: navigation.route, snapshot: monitor.snapshot, panel: monitor.panel,
-                        samples: monitor.history.recent(seconds: 120),
+                        history: monitor.history,
                         open: { navigation.push($0, reduceMotion: reduceMotion) },
                         back: { navigation.pop(animated: true, reduceMotion: reduceMotion) })
                 .id(navigation.route)
@@ -47,14 +47,17 @@ struct PanelScreen: View {
     let route: PanelRoute
     let snapshot: PowerSnapshot
     let panel: PanelState
-    let samples: [PowerHistory.Sample]
+    let history: HistoryStore
     let open: (PanelRoute) -> Void
     let back: () -> Void
+    /// Fixa o período do histórico. Serve o `--snapshot`.
+    var historyPeriod: HistoryPeriod?
 
     var body: some View {
         switch route {
         case .main:
-            PanelContent(snapshot: snapshot, panel: panel, samples: samples, open: open)
+            PanelContent(snapshot: snapshot, panel: panel, history: history, open: open,
+                         historyPeriod: historyPeriod)
         case .battery:
             BatteryDetailView(copy: BatteryCopy(snapshot: snapshot, panel: panel), back: back)
                 .frame(width: PanelContent.width, alignment: .leading)
@@ -69,8 +72,9 @@ struct PanelScreen: View {
 struct PanelContent: View {
     let snapshot: PowerSnapshot
     let panel: PanelState
-    let samples: [PowerHistory.Sample]
+    let history: HistoryStore
     let open: (PanelRoute) -> Void
+    var historyPeriod: HistoryPeriod?
 
     static let width: CGFloat = 360
 
@@ -108,13 +112,10 @@ struct PanelContent: View {
                         .padding(EdgeInsets(top: PFSpace.m, leading: PFSpace.popoverMargin,
                                             bottom: 14, trailing: PFSpace.popoverMargin))
                 }
-                // O histórico ainda é o da v1; refaz-se na Fase 6.
-                if samples.count > 2 {
-                    separator
-                    HistoryChart(samples: samples)
-                        .padding(EdgeInsets(top: 10, leading: PFSpace.popoverMargin,
-                                            bottom: PFSpace.m, trailing: PFSpace.popoverMargin))
-                }
+                separator
+                HistorySection(store: history, now: snapshot.timestamp, forcedPeriod: historyPeriod)
+                    .padding(EdgeInsets(top: 10, leading: PFSpace.popoverMargin,
+                                        bottom: PFSpace.m, trailing: PFSpace.popoverMargin))
             }
         }
         .frame(width: Self.width, alignment: .leading)

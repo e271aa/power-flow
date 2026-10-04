@@ -79,6 +79,14 @@
 "h_fresh" = "Only %@ of history so far; the rest fills in as PowerFlow measures.";
 "h_sleep" = "Mac asleep";
 "h_24h_off" = "Available after 1 h of data";
+/* args: p, m, w, t (period, average, peak, when) */
+"vo_hist" = "History, %1$@ period. System: average %2$@, peak %3$@ %4$@.";
+/* args: m */
+"vo_hist_ad" = "Adapter: average %@.";
+"vo_hist_gap" = "There are intervals with no data.";
+"vo_hist_empty" = "No history yet.";
+"vo_hist_x" = "Time";
+"vo_hist_y" = "Power in watts";
 
 /* ── Navegação ── */
 "r_apps" = "Energy by app";
@@ -179,7 +187,5 @@
 "n_now" = "now";
 
 /* ── v1 placeholders (removed in Phases 4 and 5, when the views are rebuilt) ── */
-/* args: n */
-"v1_last" = "Last %@ s";
 /* args: w */
 "tt_status" = "PowerFlow — %@ used";

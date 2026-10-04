@@ -35,16 +35,4 @@ final class SmokeTests: XCTestCase {
 
     /// O histórico é um anel: cheio, deita fora a amostra mais antiga e
     /// devolve as restantes por ordem cronológica.
-    func testHistoricoEUmAnelPorOrdemCronologica() {
-        let history = PowerHistory(capacity: 3)
-        for watts in [1.0, 2.0, 3.0, 4.0] {
-            var snapshot = PowerSnapshot()
-            snapshot.systemTotal = watts
-            history.append(snapshot)
-        }
-
-        XCTAssertEqual(history.samples.map(\.systemTotal), [2, 3, 4])
-        XCTAssertEqual(history.recent(seconds: 2).map(\.systemTotal), [3, 4])
-        XCTAssertEqual(history.peakSystemTotal, 4)
-    }
 }

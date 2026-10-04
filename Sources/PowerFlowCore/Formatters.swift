@@ -50,6 +50,24 @@ public struct PFFormat {
     /// Contagens sem unidade (ciclos, segundos).
     public func integer(_ value: Int) -> String { number(Double(value), decimals: 0) }
 
+    /// «45 s».
+    public func seconds(_ value: Int) -> String { withUnit(integer(value), "s") }
+
+    /// «30 min».
+    public func minutes(_ value: Int) -> String { withUnit(integer(value), "min") }
+
+    /// «1 h».
+    public func hours(_ value: Int) -> String { withUnit(integer(value), "h") }
+
+    /// A hora do relógio como a locale a escreve: «14:02» em PT, «2:02 PM» em EN.
+    public func clock(_ date: Date, timeZone: TimeZone = .current) -> String {
+        let f = DateFormatter()
+        f.locale = locale
+        f.timeZone = timeZone
+        f.setLocalizedDateFormatFromTemplate("jmm")
+        return f.string(from: date)
+    }
+
     /// «1 h 20 min», «45 min». Nunca negativa.
     public func duration(minutes: Int) -> String {
         let total = max(minutes, 0)
