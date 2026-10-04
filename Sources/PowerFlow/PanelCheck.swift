@@ -91,9 +91,38 @@ extension StatusItemController {
                       "partículas a mover-se: em \(moved) de \(phases.count) arestas")
             }
 
+        }
+
+        // Navegação: entrar no nível 2 como os botões entram, e voltar pelo teclado.
+        let navigated = opened + 1 + Self.openWindow
+        var mainHeight: CGFloat = 0
+        after(navigated + 0.1) {
+            mainHeight = self.popover?.contentSize.height ?? 0
+            self.navigation?.push(.battery, reduceMotion: reduceMotion)
+        }
+        after(navigated + 1.0) {
+            let height = self.popover?.contentSize.height ?? 0
+            check(self.navigation?.route == .battery, "push para a bateria")
+            check(height > 0 && height != mainHeight,
+                  String(format: "a altura do painel acompanha a vista: %.0f pt no nível 1, %.0f pt na bateria",
+                         mainHeight, height))
+            self.sendKey("\u{1B}", code: 53)
+        }
+        after(navigated + 1.6) {
+            check(self.navigation?.route == .main && self.popover?.isShown == true,
+                  "Esc volta ao nível 1 sem fechar o painel")
+            self.navigation?.push(.apps, reduceMotion: reduceMotion)
+        }
+        after(navigated + 2.5) {
+            check(self.navigation?.route == .apps, "push para «Por app»")
+            self.sendKey("[", code: 33, modifiers: .command)
+        }
+        after(navigated + 3.1) {
+            check(self.navigation?.route == .main && self.popover?.isShown == true,
+                  "⌘[ volta ao nível 1 sem fechar o painel")
             self.closePanel()
         }
-        let closed = opened + 2 + Self.openWindow
+        let closed = navigated + 4
         after(closed) {
             wakeups = 0
             cpuAtStart = Self.cpuSeconds()
@@ -112,6 +141,18 @@ extension StatusItemController {
             print(failures == 0 ? "Painel: tudo certo." : "Painel: \(failures) falha(s).")
             exit(failures == 0 ? 0 : 1)
         }
+    }
+
+    /// Uma tecla premida na janela do painel, como se viesse do teclado.
+    private func sendKey(_ characters: String, code: UInt16, modifiers: NSEvent.ModifierFlags = []) {
+        guard let window = popover?.contentViewController?.view.window,
+              let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers,
+                                           timestamp: ProcessInfo.processInfo.systemUptime,
+                                           windowNumber: window.windowNumber, context: nil,
+                                           characters: characters, charactersIgnoringModifiers: characters,
+                                           isARepeat: false, keyCode: code)
+        else { return }
+        NSApp.sendEvent(event)
     }
 
     /// Em que ponto vai o tracejado de cada aresta neste instante, lido da

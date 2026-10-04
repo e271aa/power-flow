@@ -22,6 +22,8 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
     private(set) var monitor: PowerMonitor?
     private var cancellable: AnyCancellable?
     private var shownPluggedIn: Bool?
+    /// Onde o painel está. Novo a cada abertura: o painel abre sempre no nível 1.
+    private(set) var navigation: PanelNavigation?
 
     /// Quando ligado, relata o estado do item e sai. Serve o `--diagnose`.
     var diagnoseAndExit = false
@@ -145,7 +147,9 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
         guard !popover.isShown else { return }
 
         monitor.setFastSampling(true)
-        let hosting = NSHostingController(rootView: PanelView(monitor: monitor)
+        let navigation = PanelNavigation()
+        self.navigation = navigation
+        let hosting = NSHostingController(rootView: PanelView(monitor: monitor, navigation: navigation)
             .environment(\.forceReduceMotion, forceReduceMotion))
         hosting.sizingOptions = .preferredContentSize
         popover.contentViewController = hosting
@@ -168,6 +172,7 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
     /// Deita fora o conteúdo do painel e volta ao ritmo de 1 Hz.
     private func releasePanel() {
         popover?.contentViewController = nil
+        navigation = nil
         monitor?.setFastSampling(false)
     }
 

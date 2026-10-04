@@ -5,19 +5,72 @@ import SwiftUI
 /// O painel que o item da barra abre.
 struct PanelView: View {
     @ObservedObject var monitor: PowerMonitor
+    @ObservedObject var navigation: PanelNavigation
+
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.forceReduceMotion) private var forceReduceMotion
+
+    private var reduceMotion: Bool { systemReduceMotion || forceReduceMotion }
 
     var body: some View {
-        PanelContent(snapshot: monitor.snapshot, panel: monitor.panel,
-                     samples: monitor.history.recent(seconds: 120))
+        ZStack(alignment: .top) {
+            PanelScreen(route: navigation.route, snapshot: monitor.snapshot, panel: monitor.panel,
+                        samples: monitor.history.recent(seconds: 120),
+                        open: { navigation.push($0, reduceMotion: reduceMotion) },
+                        back: { navigation.pop(animated: true, reduceMotion: reduceMotion) })
+                .id(navigation.route)
+                .transition(navigation.transition(reduceMotion: reduceMotion))
+        }
+        .frame(width: PanelContent.width, alignment: .top)
+        .clipped()
+        .background {
+            // Esc e ⌘[ voltam ao nível 1. No nível 1 não existem, e o Esc
+            // fecha o painel, como em qualquer popover.
+            if navigation.route != .main {
+                Group {
+                    Button("") { navigation.pop(animated: false, reduceMotion: reduceMotion) }
+                        .keyboardShortcut(.cancelAction)
+                    Button("") { navigation.pop(animated: false, reduceMotion: reduceMotion) }
+                        .keyboardShortcut("[", modifiers: .command)
+                }
+                .opacity(0)
+                .frame(width: 0, height: 0)
+                .accessibilityHidden(true)
+            }
+        }
     }
 }
 
-/// O conteúdo do painel para um instantâneo. Não lê nada: recebe o estado,
-/// por isso desenha-se igual com leituras verdadeiras e com as do `--snapshot`.
+/// A vista de uma rota para um instantâneo. Não lê nada nem guarda estado,
+/// por isso desenha-se igual ao vivo e no `--snapshot`.
+struct PanelScreen: View {
+    let route: PanelRoute
+    let snapshot: PowerSnapshot
+    let panel: PanelState
+    let samples: [PowerHistory.Sample]
+    let open: (PanelRoute) -> Void
+    let back: () -> Void
+
+    var body: some View {
+        switch route {
+        case .main:
+            PanelContent(snapshot: snapshot, panel: panel, samples: samples, open: open)
+        case .battery:
+            BatteryDetailView(copy: BatteryCopy(snapshot: snapshot, panel: panel), back: back)
+                .frame(width: PanelContent.width, alignment: .leading)
+        case .apps:
+            AppsView(total: PFFormat().watts(snapshot.systemTotal ?? 0), back: back)
+                .frame(width: PanelContent.width, alignment: .leading)
+        }
+    }
+}
+
+/// O nível 1 do painel.
 struct PanelContent: View {
     let snapshot: PowerSnapshot
     let panel: PanelState
     let samples: [PowerHistory.Sample]
+    let open: (PanelRoute) -> Void
 
     static let width: CGFloat = 360
 
@@ -26,7 +79,9 @@ struct PanelContent: View {
 
         VStack(alignment: .leading, spacing: 0) {
             if panel.kind == .unavailable {
-                UnavailableView()
+                UnavailableView(battery: snapshot.battery.isPresent
+                                    ? BatteryCopy(snapshot: snapshot, panel: panel) : nil,
+                                openBattery: { open(.battery) })
             } else {
                 PanelHeader(copy: copy, origin: panel.origin)
 
@@ -42,17 +97,18 @@ struct PanelContent: View {
                                             bottom: PFSpace.m, trailing: PFSpace.popoverMargin))
                 }
 
-                FlowDiagram(snapshot: snapshot, panel: panel, copy: copy)
+                FlowDiagram(snapshot: snapshot, panel: panel, copy: copy,
+                            openBattery: { open(.battery) })
                     .padding(EdgeInsets(top: PFSpace.xs, leading: PFSpace.popoverMargin,
                                         bottom: 14, trailing: PFSpace.popoverMargin))
 
-                // As duas secções de baixo ainda são as da v1; refazem-se nas Fases 5 e 6.
                 if !snapshot.breakdown.isEmpty {
                     separator
-                    BreakdownView(slices: snapshot.breakdown)
+                    BreakdownView(slices: snapshot.breakdown, openApps: { open(.apps) })
                         .padding(EdgeInsets(top: PFSpace.m, leading: PFSpace.popoverMargin,
                                             bottom: 14, trailing: PFSpace.popoverMargin))
                 }
+                // O histórico ainda é o da v1; refaz-se na Fase 6.
                 if samples.count > 2 {
                     separator
                     HistoryChart(samples: samples)
@@ -292,46 +348,61 @@ private struct PanelBanner: View {
 
 // MARK: - Sensores indisponíveis
 
-/// A6: o SMC não deu as chaves de potência.
+/// A6: o SMC não deu as chaves de potência. A bateria vem do IORegistry e
+/// continua a ler-se, por isso fica a linha que leva ao detalhe dela.
 private struct UnavailableView: View {
+    /// `nil` num Mac sem bateria.
+    let battery: BatteryCopy?
+    let openBattery: () -> Void
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top) {
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(PFColor.amberSoft)
-                    .frame(width: 32, height: 32)
-                    .overlay {
-                        Image(systemName: "exclamationmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(PFColor.amberInk)
-                    }
-                    .accessibilityHidden(true)
-                Spacer(minLength: 0)
-                // O protótipo não tem o «…» aqui. Fica, porque até haver menu
-                // de clique direito é o único sítio de onde se sai da app.
-                PanelMenuButton()
-                    .padding(.top, -6)
-                    .padding(.trailing, -4)
-            }
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top) {
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(PFColor.amberSoft)
+                        .frame(width: 32, height: 32)
+                        .overlay {
+                            Image(systemName: "exclamationmark")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundStyle(PFColor.amberInk)
+                        }
+                        .accessibilityHidden(true)
+                    Spacer(minLength: 0)
+                    // O protótipo não tem o «…» aqui. Fica, porque até haver menu
+                    // de clique direito é o único sítio de onde se sai da app.
+                    PanelMenuButton()
+                        .padding(.top, -6)
+                        .padding(.trailing, -4)
+                }
 
-            Text(L10n.string("u_title"))
-                .font(PFFont.value)
-                .foregroundStyle(PFColor.fg)
-            Text(L10n.string("u_body"))
-                .pfType(.body)
-                .foregroundStyle(PFColor.fg2)
-                .fixedSize(horizontal: false, vertical: true)
+                Text(L10n.string("u_title"))
+                    .font(PFFont.value)
+                    .foregroundStyle(PFColor.fg)
+                Text(L10n.string("u_body"))
+                    .pfType(.body)
+                    .foregroundStyle(PFColor.fg2)
+                    .fixedSize(horizontal: false, vertical: true)
 
-            // «Reportar no GitHub» aparece quando houver repositório (D3).
-            Button(L10n.string("u_copy")) {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(Diagnostics.report(), forType: .string)
+                // «Reportar no GitHub» aparece quando houver repositório (D3).
+                Button(L10n.string("u_copy")) {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(Diagnostics.report(), forType: .string)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .padding(.top, 2)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .padding(.top, 2)
+            .padding(EdgeInsets(top: PFSpace.xl, leading: PFSpace.popoverMargin,
+                                bottom: PFSpace.l, trailing: PFSpace.popoverMargin))
+
+            if let battery {
+                Rectangle().fill(PFColor.sep).frame(height: 1)
+                PanelNavRow(symbol: "battery.75", title: L10n.string("r_batt"),
+                            summary: battery.rowSummary, action: openBattery)
+                    .padding(EdgeInsets(top: PFSpace.xs, leading: PFSpace.s,
+                                        bottom: PFSpace.s, trailing: PFSpace.s))
+            }
         }
-        .padding(EdgeInsets(top: PFSpace.xl, leading: PFSpace.popoverMargin,
-                            bottom: PFSpace.l, trailing: PFSpace.popoverMargin))
     }
 }

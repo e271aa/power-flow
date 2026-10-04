@@ -1,66 +1,143 @@
 import PowerFlowCore
 import SwiftUI
 
-/// Para onde vão os watts dentro do sistema.
-///
-/// É o que o AlDente não mostra: não só quanto a máquina consome, mas
-/// que parte dela está a consumir.
-struct BreakdownView: View {
-    let slices: [BreakdownSlice]
-
-    private func label(_ kind: BreakdownSlice.Kind) -> String {
-        switch kind {
+extension BreakdownSlice.Kind {
+    var label: String {
+        switch self {
         case .soc:      return L10n.string("bd_soc")
         case .mainRail: return L10n.string("bd_main")
         case .other:    return L10n.string("bd_rest")
         }
     }
 
-    private func color(_ kind: BreakdownSlice.Kind) -> Color {
-        switch kind {
+    /// Preenchimento. Nunca é texto.
+    var color: Color {
+        switch self {
         case .soc:      return PFColor.blue
         case .mainRail: return PFColor.blue2
         case .other:    return PFColor.rest
         }
     }
+}
+
+/// «Onde se gasta»: para onde vão os watts dentro do sistema.
+///
+/// O resto da placa não é medido, é a diferença. Por isso desenha-se
+/// tracejado: a cor sozinha não chegava para o distinguir de uma medição.
+struct BreakdownView: View {
+    let slices: [BreakdownSlice]
+    /// `nil`: sem botão «Por app».
+    var openApps: (() -> Void)?
+
+    private static let barHeight: CGFloat = 10
+    private static let gap: CGFloat = 2
 
     var body: some View {
-        let total = max(slices.reduce(0) { $0 + $1.watts }, 0.001)
-
-        if !slices.isEmpty {
-            VStack(alignment: .leading, spacing: 7) {
+        VStack(alignment: .leading, spacing: PFSpace.s) {
+            HStack(spacing: PFSpace.s) {
                 Text(L10n.string("bd_title"))
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                    .kerning(0.4)
-
-                GeometryReader { proxy in
-                    HStack(spacing: 2) {
-                        ForEach(slices) { slice in
-                            RoundedRectangle(cornerRadius: PFRadius.appBar, style: .continuous)
-                                .fill(color(slice.kind))
-                                .frame(width: max(proxy.size.width * slice.watts / total - 2, 2))
+                    .pfType(.title)
+                    .foregroundStyle(PFColor.fg)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: 0)
+                if let openApps {
+                    Button(action: openApps) {
+                        HStack(spacing: 2) {
+                            Text(L10n.string("bd_byapp"))
+                                .font(PFFont.secondary)
+                                .foregroundStyle(PFColor.fg)
+                            PFDisclosure()
                         }
+                        .padding(.leading, PFSpace.s)
+                        .padding(.trailing, PFSpace.xs)
+                        // 22 pt à vista; a área de clique tem os 24 pt mínimos.
+                        .frame(height: 24)
                     }
-                }
-                .frame(height: 8)
-
-                HStack(spacing: 12) {
-                    ForEach(slices) { slice in
-                        HStack(spacing: 4) {
-                            Circle().fill(color(slice.kind)).frame(width: 6, height: 6)
-                            Text(label(slice.kind))
-                                .font(.system(size: 10))
-                                .foregroundStyle(.secondary)
-                            Text(PFFormat().watts(slice.watts))
-                                .font(.system(size: 10, weight: .medium, design: .rounded))
-                                .monospacedDigit()
-                        }
-                    }
-                    Spacer(minLength: 0)
+                    .buttonStyle(PFHoverButtonStyle(radius: PFRadius.segment))
+                    .padding(.trailing, -PFSpace.xs)
+                    .padding(.vertical, -3.5)
                 }
             }
+
+            bar
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: PFSpace.s, alignment: .topLeading),
+                                     count: 3),
+                      alignment: .leading, spacing: PFSpace.s) {
+                ForEach(slices) { slice in
+                    VStack(alignment: .leading, spacing: 1) {
+                        HStack(spacing: 6) {
+                            BreakdownSwatch(kind: slice.kind)
+                                .frame(width: 8, height: 8)
+                            Text(slice.kind.label)
+                                .pfType(.secondary)
+                                .foregroundStyle(PFColor.fg2)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.9)
+                        }
+                        Text(PFFormat().watts(slice.watts))
+                            .pfType(.title)
+                            .monospacedDigit()
+                            .foregroundStyle(PFColor.fg)
+                            .padding(.leading, 14)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
+
+            if slices.contains(where: { $0.kind == .other }) {
+                Text(L10n.string("bd_rest_note"))
+                    .pfType(.minimum)
+                    .foregroundStyle(PFColor.fg2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var bar: some View {
+        GeometryReader { proxy in
+            let widths = BreakdownLayout.widths(for: slices.map(\.watts), total: proxy.size.width,
+                                                gap: Self.gap)
+            HStack(spacing: Self.gap) {
+                ForEach(Array(zip(slices, widths)), id: \.0.id) { slice, width in
+                    BreakdownSwatch(kind: slice.kind, radius: PFRadius.breakdownBar,
+                                    stripe: 2, space: 2.5)
+                        .frame(width: width)
+                }
+            }
+        }
+        .frame(height: Self.barHeight)
+        .accessibilityHidden(true)
+    }
+}
+
+/// Um bocado de barra ou uma amostra da legenda. O resto é tracejado a 135°,
+/// com contorno, para se ler como «não medido» sem depender da cor.
+private struct BreakdownSwatch: View {
+    let kind: BreakdownSlice.Kind
+    var radius: CGFloat = PFRadius.appBar
+    var stripe: CGFloat = 1.5
+    var space: CGFloat = 1.5
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        if kind == .other {
+            Canvas { context, size in
+                // Riscos a 135°: descem da direita para a esquerda.
+                let period = (stripe + space) * 2.0.squareRoot()
+                var x = -size.height
+                while x < size.width + size.height {
+                    var line = Path()
+                    line.move(to: CGPoint(x: x + size.height, y: 0))
+                    line.addLine(to: CGPoint(x: x, y: size.height))
+                    context.stroke(line, with: .color(kind.color), lineWidth: stripe)
+                    x += period
+                }
+            }
+            .clipShape(shape)
+            .overlay { shape.strokeBorder(kind.color, lineWidth: 1) }
+        } else {
+            shape.fill(kind.color)
         }
     }
 }

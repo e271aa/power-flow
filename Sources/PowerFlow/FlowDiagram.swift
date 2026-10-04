@@ -89,6 +89,8 @@ struct FlowDiagram: View {
     let snapshot: PowerSnapshot
     let panel: PanelState
     let copy: PanelCopy
+    /// O que o nó da bateria faz quando se clica. `nil`: é só um cartão.
+    var openBattery: (() -> Void)?
 
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.forceReduceMotion) private var forceReduceMotion
@@ -173,9 +175,16 @@ struct FlowDiagram: View {
                      value: copy.system, isDimmed: copy.isDimmed, isUnplugged: false)
                 .accessibilityLabel(copy.voSystem)
         case .battery:
-            NodeCard(node: node, symbol: batterySymbol, label: copy.batteryLabel,
-                     value: copy.battery, isDimmed: copy.isDimmed, isUnplugged: false)
-                .accessibilityLabel(copy.voBattery ?? "")
+            let card = NodeCard(node: node, symbol: batterySymbol, label: copy.batteryLabel,
+                                value: copy.battery, isDimmed: copy.isDimmed, isUnplugged: false,
+                                showsDisclosure: openBattery != nil)
+            if let openBattery {
+                Button(action: openBattery) { card }
+                    .buttonStyle(NodeButtonStyle())
+                    .accessibilityLabel(copy.voBattery ?? "")
+            } else {
+                card.accessibilityLabel(copy.voBattery ?? "")
+            }
         }
     }
 
@@ -250,6 +259,8 @@ private struct NodeCard: View {
     let value: PanelCopy.NodeValue
     let isDimmed: Bool
     let isUnplugged: Bool
+    /// O «›» de um nó que leva a outra vista.
+    var showsDisclosure = false
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: PFRadius.card, style: .continuous)
@@ -275,11 +286,12 @@ private struct NodeCard: View {
             }
             .lineLimit(1)
             .minimumScaleFactor(0.85)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer(minLength: 0)
+            if showsDisclosure { PFDisclosure() }
         }
         .padding(.leading, 9)
-        .padding(.trailing, 8)
+        .padding(.trailing, showsDisclosure ? 6 : 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {
             shape.fill(PFColor.node)
@@ -291,5 +303,23 @@ private struct NodeCard: View {
         }
         .opacity(isUnplugged ? 0.6 : 1)
         .accessibilityElement(children: .ignore)
+    }
+}
+
+/// O nó que é botão: com o ponteiro por cima leva um anel de 3 pt.
+private struct NodeButtonStyle: ButtonStyle {
+    @State private var isHovering = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        let ring = RoundedRectangle(cornerRadius: PFRadius.card + 3, style: .continuous)
+        configuration.label
+            .background {
+                ring.fill(PFColor.fill)
+                    .padding(-3)
+                    .opacity(isHovering || configuration.isPressed ? 1 : 0)
+            }
+            .contentShape(Rectangle())
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .onHover { isHovering = $0 }
     }
 }

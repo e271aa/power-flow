@@ -57,6 +57,22 @@ enum Entry {
                 }
                 options.appearance = appearance
             }
+            if let name = value(after: "--view") {
+                guard let route = Snapshotter.routes[name] else {
+                    print("Vista desconhecida: \(name). Vistas: "
+                        + Snapshotter.routes.keys.sorted().joined(separator: ", "))
+                    exit(2)
+                }
+                options.route = route
+            }
+            if let name = value(after: "--without") {
+                guard let missing = Snapshotter.Missing(rawValue: name) else {
+                    print("Leitura desconhecida: \(name). Leituras: "
+                        + Snapshotter.Missing.allCases.map(\.rawValue).joined(separator: ", "))
+                    exit(2)
+                }
+                options.missing = missing
+            }
             MainActor.assumeIsolated { Snapshotter.render(to: path, options: options) }
             exit(0)
         }

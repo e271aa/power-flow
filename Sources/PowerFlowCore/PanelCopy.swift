@@ -41,6 +41,33 @@ public struct PanelCopy: Equatable, Sendable {
     /// O diagrama inteiro numa frase, para quem não quer percorrer as partes.
     public let voDiagram: String
 
+    /// O texto de um aviso. Serve também a caixa «Porque não está a carregar».
+    public static func banner(_ kind: PanelState.Banner, snapshot: PowerSnapshot,
+                              language: String = L10n.language) -> Banner {
+        let format = PFFormat(locale: Locale(identifier: language))
+        func text(_ key: String, _ args: CVarArg...) -> String {
+            L10n.string(key, language: language, args: args)
+        }
+        let system = format.watts(snapshot.systemTotal ?? 0)
+        let rated = format.watts(Double(snapshot.battery.adapterWatts), decimals: 0)
+
+        switch kind {
+        case .assist:
+            return Banner(title: text("ban_assist_t"),
+                          text: text("ban_assist", system, rated, format.watts(snapshot.adapterInput ?? 0)),
+                          isAttention: true)
+        case .temperature:
+            let degrees = snapshot.batteryTemperature.map { format.celsius($0) } ?? "—"
+            return Banner(title: nil, text: text("ban_temp", degrees), isAttention: true)
+        case .weakAdapter:
+            return Banner(title: nil, text: text("ban_weak", rated, system), isAttention: true)
+        case .optimized:
+            return Banner(title: nil, text: text("ban_optimized"), isAttention: false)
+        case .standby:
+            return Banner(title: nil, text: text("ban_standby"), isAttention: false)
+        }
+    }
+
     public init(snapshot: PowerSnapshot, panel: PanelState,
                 language: String = L10n.language) {
         let format = PFFormat(locale: Locale(identifier: language))
@@ -51,7 +78,6 @@ public struct PanelCopy: Equatable, Sendable {
         let battery = snapshot.battery
         let system = snapshot.systemTotal ?? 0
         let percent = format.percent(battery.percentage)
-        let rated = format.watts(Double(battery.adapterWatts), decimals: 0)
         let settling = panel.kind == .settling
 
         isDimmed = settling
@@ -78,25 +104,7 @@ public struct PanelCopy: Equatable, Sendable {
             status = nil
         }
 
-        switch panel.banner {
-        case .assist:
-            banner = Banner(title: text("ban_assist_t"),
-                            text: text("ban_assist", format.watts(system), rated,
-                                       format.watts(snapshot.adapterInput ?? 0)),
-                            isAttention: true)
-        case .temperature:
-            let degrees = snapshot.batteryTemperature.map { format.celsius($0) } ?? "—"
-            banner = Banner(title: nil, text: text("ban_temp", degrees), isAttention: true)
-        case .weakAdapter:
-            banner = Banner(title: nil, text: text("ban_weak", rated, format.watts(system)),
-                            isAttention: true)
-        case .optimized:
-            banner = Banner(title: nil, text: text("ban_optimized"), isAttention: false)
-        case .standby:
-            banner = Banner(title: nil, text: text("ban_standby"), isAttention: false)
-        case nil:
-            banner = nil
-        }
+        banner = panel.banner.map { Self.banner($0, snapshot: snapshot, language: language) }
 
         // O que sai do adaptador, não a leitura em bruto: assim o número é
         // sempre a soma das setas que dele partem. A estabilizar ainda não há

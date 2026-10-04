@@ -78,6 +78,10 @@ public struct PanelState: Equatable, Sendable {
     public let batteryActivity: BatteryActivity
     /// Falso num Mac sem bateria: não há nó nem detalhe de bateria.
     public let showsBattery: Bool
+    /// Porque é que a bateria não carrega com o cabo ligado, mesmo quando o
+    /// painel não o mostra em aviso (a estabilizar, ou sem leituras do SMC).
+    /// Vem só do IORegistry.
+    public let pauseReason: Banner?
 
     public init(snapshot: PowerSnapshot, sensorsAvailable: Bool) {
         let battery = snapshot.battery
@@ -116,6 +120,10 @@ public struct PanelState: Equatable, Sendable {
         case .assisting: origin = .adapterAndBattery
         default:         origin = .adapter
         }
+
+        pauseReason = battery.isPresent && snapshot.source == .adapter && !battery.isCharging
+            ? Self.pauseBanner(reason: battery.notChargingReason, isFullyCharged: battery.isFullyCharged)
+            : nil
 
         switch kind {
         case .assisting: banner = .assist

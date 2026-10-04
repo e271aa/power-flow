@@ -17,7 +17,17 @@ enum Snapshotter {
         var appearance: NSAppearance.Name?
         var reduceMotion = false
         var warmUpSeconds: Double = 6
+        /// A vista a desenhar: o nível 1, ou uma das do nível 2.
+        var route: PanelRoute = .main
+        /// Tira uma leitura ao estado, para ver o painel num Mac que não a dá.
+        var missing: Missing?
     }
+
+    enum Missing: String, CaseIterable {
+        case soc, mainrail
+    }
+
+    static let routes: [String: PanelRoute] = ["main": .main, "battery": .battery, "apps": .apps]
 
     static let appearances: [String: NSAppearance.Name] = [
         "light": .aqua,
@@ -27,10 +37,19 @@ enum Snapshotter {
     ]
 
     static func render(to path: String, options: Options) {
-        let content: PanelContent
+        var snapshot: PowerSnapshot
+        let sensorsAvailable: Bool
+        let samples: [PowerHistory.Sample]
         if let state = options.state {
-            content = PanelContent(snapshot: state.snapshot, panel: state.panel,
-                                   samples: state.history)
+            snapshot = state.snapshot
+            // Os números de bateria do protótipo, que o estado não traz.
+            if snapshot.battery.isPresent {
+                snapshot.battery.fullChargeCapacity = 4860
+                snapshot.battery.designCapacity = 6075
+                snapshot.battery.cycleCount = 649
+            }
+            sensorsAvailable = state.sensorsAvailable
+            samples = state.history
         } else {
             let monitor = PowerMonitor()
             monitor.setFastSampling(true)
@@ -40,9 +59,18 @@ enum Snapshotter {
             while Date() < deadline {
                 RunLoop.main.run(until: Date().addingTimeInterval(0.1))
             }
-            content = PanelContent(snapshot: monitor.snapshot, panel: monitor.panel,
-                                   samples: monitor.history.recent(seconds: 120))
+            snapshot = monitor.snapshot
+            sensorsAvailable = monitor.isAvailable
+            samples = monitor.history.recent(seconds: 120)
         }
+        switch options.missing {
+        case .soc:      snapshot.socPower = nil
+        case .mainrail: snapshot.mainRailPower = nil
+        case nil:       break
+        }
+        let content = PanelScreen(route: options.route, snapshot: snapshot,
+                                  panel: PanelState(snapshot: snapshot, sensorsAvailable: sensorsAvailable),
+                                  samples: samples, open: { _ in }, back: {})
 
         let appearance = options.appearance.flatMap { NSAppearance(named: $0) }
             ?? NSApplication.shared.effectiveAppearance
