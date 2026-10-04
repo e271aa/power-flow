@@ -125,11 +125,13 @@ struct FlowDiagram: View {
                 .accessibilityHidden(true)
             }
 
-            ForEach(FlowLayout.nodes(hasBattery: panel.showsBattery), id: \.self) { node in
+            ForEach(Array(FlowLayout.nodes(hasBattery: panel.showsBattery).enumerated()), id: \.element) { index, node in
                 let frame = FlowLayout.frame(of: node)
                 card(for: node)
                     .frame(width: frame.width, height: frame.height)
                     .offset(x: frame.minX, y: frame.minY)
+                    // O VoiceOver lê os nós primeiro, pela ordem do handoff, e as arestas depois.
+                    .accessibilitySortPriority(Double(10 - index))
             }
 
             // Os chevrons e as portas ficam por cima de tudo: as portas tapam
@@ -143,7 +145,7 @@ struct FlowDiagram: View {
             .allowsHitTesting(false)
             .accessibilityHidden(true)
 
-            ForEach(streams) { stream in
+            ForEach(Array(streams.enumerated()), id: \.element.id) { index, stream in
                 if let label = copy.voFlows[stream.edge] {
                     let middle = stream.curve.point(at: 0.5)
                     Color.clear
@@ -151,6 +153,8 @@ struct FlowDiagram: View {
                         .offset(x: middle.x - 12, y: middle.y - 12)
                         .accessibilityElement()
                         .accessibilityLabel(label)
+                        .accessibilityAddTraits(.isStaticText)
+                        .accessibilitySortPriority(Double(5 - index))
                 }
             }
         }
@@ -170,10 +174,12 @@ struct FlowDiagram: View {
                      value: copy.adapter, isDimmed: copy.isDimmed,
                      isUnplugged: panel.origin == .battery)
                 .accessibilityLabel(copy.voAdapter)
+                .accessibilityAddTraits(.isStaticText)
         case .system:
             NodeCard(node: node, symbol: "cpu.fill", label: L10n.string("n_system"),
                      value: copy.system, isDimmed: copy.isDimmed, isUnplugged: false)
                 .accessibilityLabel(copy.voSystem)
+                .accessibilityAddTraits(.isStaticText)
         case .battery:
             let card = NodeCard(node: node, symbol: batterySymbol, label: copy.batteryLabel,
                                 value: copy.battery, isDimmed: copy.isDimmed, isUnplugged: false,
@@ -184,6 +190,7 @@ struct FlowDiagram: View {
                     .accessibilityLabel(copy.voBattery ?? "")
             } else {
                 card.accessibilityLabel(copy.voBattery ?? "")
+                    .accessibilityAddTraits(.isStaticText)
             }
         }
     }
@@ -274,18 +281,23 @@ private struct NodeCard: View {
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(node.ink)
                 }
+                .opacity(isUnplugged ? 0.6 : 1)
 
             VStack(alignment: .leading, spacing: 0) {
+                // O rótulo quebra em vez de encolher: tem 11 pt, o mínimo. Duas
+                // linhas e o valor ainda cabem nos 48 pt do cartão.
                 Text(label)
                     .pfType(.minimum)
                     .foregroundStyle(PFColor.fg2)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(value.text)
                     .pfType(value.isWord ? .valueWord : .value)
                     .monospacedDigit()
                     .foregroundStyle(value.isWord || isDimmed ? PFColor.fg2 : PFColor.fg)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
-            .lineLimit(1)
-            .minimumScaleFactor(0.85)
             .frame(maxWidth: .infinity, alignment: .leading)
 
             if showsDisclosure { PFDisclosure() }
@@ -293,15 +305,18 @@ private struct NodeCard: View {
         .padding(.leading, 9)
         .padding(.trailing, showsDisclosure ? 6 : 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // Desligado: o cartão e o símbolo esbatem-se e o contorno fica
+        // tracejado, mas o texto não. A 60 % ficava a 2,3:1 no tema claro.
         .background {
             shape.fill(PFColor.node)
                 .shadow(color: .black.opacity(0.06), radius: 1.5, y: 1)
+                .opacity(isUnplugged ? 0.6 : 1)
         }
         .overlay {
             shape.strokeBorder(PFColor.nodeBorder,
                                style: StrokeStyle(lineWidth: 1, dash: isUnplugged ? [3, 3] : []))
+                .opacity(isUnplugged ? 0.6 : 1)
         }
-        .opacity(isUnplugged ? 0.6 : 1)
         .accessibilityElement(children: .ignore)
     }
 }
@@ -318,7 +333,8 @@ private struct NodeButtonStyle: ButtonStyle {
                     .padding(-3)
                     .opacity(isHovering || configuration.isPressed ? 1 : 0)
             }
-            .contentShape(Rectangle())
+            // O anel de foco segue esta forma: com um retângulo saía de cantos retos.
+            .contentShape(RoundedRectangle(cornerRadius: PFRadius.card, style: .continuous))
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
             .onHover { isHovering = $0 }
     }

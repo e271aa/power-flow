@@ -46,33 +46,21 @@ struct HistorySection: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            HStack(spacing: PFSpace.m) {
-                HistoryKey(label: L10n.string("h_sys")) {
-                    Capsule().fill(PFColor.blue).frame(width: 12, height: 3)
+            // Numa linha quando cabe; senão a média desce para a linha de baixo
+            // e, se nem assim, cada entrada fica na sua linha. Nada se corta.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: PFSpace.m) {
+                    keys(series)
+                    Spacer(minLength: 0)
+                    averageLabel(copy)
                 }
-                if series.hasAdapter {
-                    HistoryKey(label: L10n.string("h_ad")) {
-                        Capsule().fill(PFColor.green).frame(width: 12, height: 3)
-                    }
+                VStack(alignment: .leading, spacing: PFSpace.xs) {
+                    HStack(spacing: PFSpace.m) { keys(series) }
+                    averageLabel(copy)
                 }
-                if series.hasBatteryArea {
-                    HistoryKey(label: L10n.string("h_bat")) {
-                        RoundedRectangle(cornerRadius: 2, style: .continuous)
-                            .fill(PFColor.amberSoft)
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                                    .strokeBorder(PFColor.amber, lineWidth: 1)
-                            }
-                            .frame(width: 10, height: 9)
-                    }
-                }
-                Spacer(minLength: 0)
-                if let average = copy.average {
-                    (Text(L10n.string("h_avg") + " ").foregroundColor(PFColor.fg2)
-                        + Text(average).fontWeight(.semibold).foregroundColor(PFColor.fg))
-                        .font(PFFont.secondary)
-                        .monospacedDigit()
-                        .lineLimit(1)
+                VStack(alignment: .leading, spacing: PFSpace.xs) {
+                    keys(series)
+                    averageLabel(copy)
                 }
             }
         }
@@ -83,9 +71,45 @@ struct HistorySection: View {
                 shortcut("2", .oneHour)
                 if dayAvailable { shortcut("3", .day) }
             }
+            // Só atalhos: fora do percurso do Tab, onde eram paragens sem anel.
+            .focusable(false)
             .opacity(0)
             .frame(width: 0, height: 0)
             .accessibilityHidden(true)
+        }
+    }
+
+    /// As entradas da legenda: a amostra espelha a marca (traço para linha, caixa para área).
+    @ViewBuilder private func keys(_ series: HistorySeries) -> some View {
+        HistoryKey(label: L10n.string("h_sys")) {
+            Capsule().fill(PFColor.blue).frame(width: 12, height: 3)
+        }
+        if series.hasAdapter {
+            HistoryKey(label: L10n.string("h_ad")) {
+                Capsule().fill(PFColor.green).frame(width: 12, height: 3)
+            }
+        }
+        if series.hasBatteryArea {
+            HistoryKey(label: L10n.string("h_bat")) {
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(PFColor.amberSoft)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 2, style: .continuous)
+                            .strokeBorder(PFColor.amber, lineWidth: 1)
+                    }
+                    .frame(width: 10, height: 9)
+            }
+        }
+    }
+
+    @ViewBuilder private func averageLabel(_ copy: HistoryCopy) -> some View {
+        if let average = copy.average {
+            (Text(L10n.string("h_avg") + " ").foregroundColor(PFColor.fg2)
+                + Text(average).fontWeight(.semibold).foregroundColor(PFColor.fg))
+                .font(PFFont.secondary)
+                .monospacedDigit()
+                .lineLimit(1)
+                .fixedSize()
         }
     }
 
@@ -107,6 +131,7 @@ private struct HistoryKey<Swatch: View>: View {
                 .pfType(.minimum)
                 .foregroundStyle(PFColor.fg2)
                 .lineLimit(1)
+                .fixedSize()
         }
         .accessibilityElement(children: .combine)
     }
@@ -210,6 +235,7 @@ struct HistoryChart: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(copy.description)
+        .accessibilityAddTraits(.isImage)
         .accessibilityChartDescriptor(HistoryDescriptor(series: series, copy: copy))
     }
 

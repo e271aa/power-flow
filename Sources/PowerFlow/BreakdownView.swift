@@ -66,14 +66,14 @@ struct BreakdownView: View {
                       alignment: .leading, spacing: PFSpace.s) {
                 ForEach(slices) { slice in
                     VStack(alignment: .leading, spacing: 1) {
-                        HStack(spacing: 6) {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
                             BreakdownSwatch(kind: slice.kind)
                                 .frame(width: 8, height: 8)
+                            // Quebra em vez de cortar ou de encolher abaixo de 11 pt.
                             Text(slice.kind.label)
                                 .pfType(.secondary)
                                 .foregroundStyle(PFColor.fg2)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.9)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                         Text(PFFormat().watts(slice.watts))
                             .pfType(.title)

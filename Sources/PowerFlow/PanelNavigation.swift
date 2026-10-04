@@ -61,7 +61,8 @@ struct PFHoverButtonStyle: ButtonStyle {
                     .fill(PFColor.fill)
                     .opacity(isHovering || configuration.isPressed ? 1 : 0)
             }
-            .contentShape(Rectangle())
+            // O anel de foco segue esta forma, com os cantos do fundo do hover.
+            .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
             .onHover { isHovering = $0 }
     }
 }

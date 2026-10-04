@@ -55,6 +55,12 @@ extension StatusItemController {
 
         print("== Verificação do painel (Reduzir Movimento: \(reduceMotion ? "ligado" : "desligado")) ==")
 
+        // O cartão de primeiro arranque só entra no passo dele: à vista desde o
+        // início, o Return não lhe chegava (visto na Fase 10, também na Fase 9).
+        // O valor do utilizador repõe-se no fim da verificação.
+        let savedFirstRun = UserDefaults.standard.object(forKey: AppSettings.firstRunDoneKey)
+        UserDefaults.standard.set(true, forKey: AppSettings.firstRunDoneKey)
+
         // Aos 5 s o item já está na barra; antes disso o painel não abre.
         let opened: TimeInterval = 5
         after(opened) {
@@ -171,31 +177,73 @@ extension StatusItemController {
         }
         // Primeiro arranque: o cartão aparece, «Percebi» (Return) grava
         // `pf.firstRunDone`, e reaberto o painel já não o tem.
-        let savedFirstRun = defaults.object(forKey: AppSettings.firstRunDoneKey)
+        // A mudança da preferência chega à vista pelo `@AppStorage`, às vezes
+        // mais de 0,6 s depois (medido na Fase 10): o cartão tem 2 s para aparecer.
         after(navigated + 5.8) {
             self.navigation?.pop(animated: false, reduceMotion: true)
             defaults.set(false, forKey: AppSettings.firstRunDoneKey)
         }
-        after(navigated + 6.4) {
-            check(FirstRunCard.shownCount == 1, "primeiro arranque: o cartão aparece")
+        after(navigated + 7.8) {
+            check(FirstRunCard.shownCount == 1, "primeiro arranque: o cartão aparece (\(FirstRunCard.shownCount) à vista)")
             self.sendKey("\r", code: 36)
         }
-        after(navigated + 7.0) {
+        after(navigated + 8.4) {
             check(AppSettings.firstRunDone(), "«Percebi» (Return) grava pf.firstRunDone")
             check(FirstRunCard.shownCount == 0, "depois de «Percebi» o cartão sai")
             self.closePanel()
         }
-        after(navigated + 7.4) { self.holdPanel() }
-        after(navigated + 8.0) {
+        after(navigated + 8.8) { self.holdPanel() }
+        after(navigated + 9.4) {
             check(self.popover?.isShown == true && FirstRunCard.shownCount == 0,
                   "reaberto, o cartão não volta")
-            if let savedFirstRun { defaults.set(savedFirstRun, forKey: AppSettings.firstRunDoneKey) } else { defaults.removeObject(forKey: AppSettings.firstRunDoneKey) }
         }
 
-        after(navigated + 8.2) {
+        // Teclado (Fase 10): cada paragem do Tab é uma vista que se vê, no
+        // nível 1 e no nível 2. Um botão escondido de atalho (⌘1, Esc…) que
+        // apanhe o foco deixa o anel sem sítio onde se desenhar.
+        var stops: [String] = []
+        func walk(_ label: String, tabs: Int, at start: TimeInterval) {
+            for step in 0..<tabs {
+                after(start + Double(step) * 0.2) { self.sendKey("\t", code: 48) }
+                after(start + Double(step) * 0.2 + 0.15) {
+                    stops.append(PanelFocus.describe(self.popover?.contentViewController?.view.window?.firstResponder))
+                }
+            }
+            after(start + Double(tabs) * 0.2 + 0.05) {
+                let hidden = stops.filter { $0.contains("INVISÍVEL") || $0 == "nenhum" }
+                check(hidden.isEmpty, "teclado, \(label): \(tabs) Tab sem paragens invisíveis (\(hidden.count) de \(tabs))")
+                print("          " + stops.joined(separator: " → "))
+                stops = []
+            }
+        }
+        if let path = panelPNG {
+            after(navigated + 9.5) {
+                print("  Aparência: \(NSApp.effectiveAppearance.name.rawValue); aumentar contraste \(NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast), reduzir transparência \(NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency)")
+                self.renderPanel(to: path)
+            }
+        }
+        // ⌘2 e ⌘1 escolhem o período sem foco nenhum (os botões deles saíram do Tab).
+        let savedPeriod = defaults.object(forKey: "pf.historyPeriod")
+        after(navigated + 9.55) { self.sendKey("2", code: 19, modifiers: .command) }
+        after(navigated + 9.58) {
+            check(defaults.string(forKey: "pf.historyPeriod") == HistoryPeriod.oneHour.rawValue,
+                  "⌘2 escolhe «1 h» no histórico")
+            self.sendKey("1", code: 18, modifiers: .command)
+        }
+        after(navigated + 9.59) {
+            check(defaults.string(forKey: "pf.historyPeriod") == HistoryPeriod.twoMinutes.rawValue,
+                  "⌘1 escolhe «2 min» no histórico")
+            if let savedPeriod { defaults.set(savedPeriod, forKey: "pf.historyPeriod") } else { defaults.removeObject(forKey: "pf.historyPeriod") }
+        }
+        walk("nível 1", tabs: 8, at: navigated + 9.6)
+        after(navigated + 11.4) { self.navigation?.push(.battery, reduceMotion: true) }
+        walk("bateria", tabs: 4, at: navigated + 11.9)
+        after(navigated + 13.0) { self.navigation?.pop(animated: false, reduceMotion: true) }
+
+        after(navigated + 13.2) {
             self.closePanel()
         }
-        let closed = navigated + 8.9
+        let closed = navigated + 13.9
         after(closed) {
             wakeups = 0
             cpuAtStart = Self.cpuSeconds()
@@ -212,9 +260,27 @@ extension StatusItemController {
                   String(format: "fechado: %.2f %% de CPU (máximo %.0f %%), %.0f despertares/s",
                          cpu, Self.closedBudget, Double(wakeups) / Self.closedWindow))
 
+            if let savedFirstRun { defaults.set(savedFirstRun, forKey: AppSettings.firstRunDoneKey) } else { defaults.removeObject(forKey: AppSettings.firstRunDoneKey) }
             print(failures == 0 ? "Painel: tudo certo." : "Painel: \(failures) falha(s).")
             exit(failures == 0 ? 0 : 1)
         }
+    }
+
+    /// Desenha o painel aberto a partir da árvore de camadas da janela do
+    /// popover (com o material de fundo), sem capturar o ecrã.
+    private func renderPanel(to path: String) {
+        guard let window = popover?.contentViewController?.view.window,
+              let frameView = window.contentView?.superview, let layer = frameView.layer else { return }
+        let scale = window.backingScaleFactor, size = frameView.bounds.size
+        guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width * scale),
+                                         pixelsHigh: Int(size.height * scale), bitsPerSample: 8,
+                                         samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                                         colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
+              let context = NSGraphicsContext(bitmapImageRep: rep) else { return }
+        context.cgContext.scaleBy(x: scale, y: scale)
+        layer.render(in: context.cgContext)
+        try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
+        print("  Painel desenhado em \(path)")
     }
 
     /// Uma tecla premida na janela do painel, como se viesse do teclado.

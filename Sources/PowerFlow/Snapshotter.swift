@@ -48,22 +48,27 @@ enum Snapshotter {
         "hc-dark": .accessibilityHighContrastDarkAqua,
     ]
 
+    /// Os dados de um estado do protótipo, os mesmos na imagem e no `--window --state`.
+    static func fixture(_ state: PanelFixture, fresh: Bool = false)
+        -> (PowerSnapshot, Bool, HistoryStore, AppsInput) {
+        var snapshot = state.snapshot
+        // Os números de bateria do protótipo, que o estado não traz.
+        if snapshot.battery.isPresent {
+            snapshot.battery.fullChargeCapacity = 4860
+            snapshot.battery.designCapacity = 6075
+            snapshot.battery.cycleCount = 649
+        }
+        return (snapshot, state.sensorsAvailable, state.history(fresh: fresh, now: snapshot.timestamp),
+                AppsInput(report: state.apps(at: snapshot.timestamp), systemAverage: snapshot.systemTotal))
+    }
+
     static func render(to path: String, options: Options) {
         var snapshot: PowerSnapshot
         let sensorsAvailable: Bool
         let history: HistoryStore
         var apps = AppsInput()
         if let state = options.state {
-            snapshot = state.snapshot
-            // Os números de bateria do protótipo, que o estado não traz.
-            if snapshot.battery.isPresent {
-                snapshot.battery.fullChargeCapacity = 4860
-                snapshot.battery.designCapacity = 6075
-                snapshot.battery.cycleCount = 649
-            }
-            sensorsAvailable = state.sensorsAvailable
-            history = state.history(fresh: options.isFresh, now: snapshot.timestamp)
-            apps = AppsInput(report: state.apps(at: snapshot.timestamp), systemAverage: snapshot.systemTotal)
+            (snapshot, sensorsAvailable, history, apps) = fixture(state, fresh: options.isFresh)
         } else {
             let monitor = PowerMonitor()
             monitor.setFastSampling(true)

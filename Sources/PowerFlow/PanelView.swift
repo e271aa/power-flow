@@ -10,6 +10,7 @@ struct PanelView: View {
 
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.forceReduceMotion) private var forceReduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @AppStorage(AppSettings.firstRunDoneKey) private var firstRunDone = false
 
     private var reduceMotion: Bool { systemReduceMotion || forceReduceMotion }
@@ -27,24 +28,35 @@ struct PanelView: View {
         }
         .frame(width: PanelContent.width, alignment: .top)
         .clipped()
+        // Com Reduzir transparência o sistema já tira a translucidez ao popover;
+        // o fundo passa a ser o `bg` do tema, como pede o handoff.
+        .background(reduceTransparency ? PFColor.bg : Color.clear)
         // O amostrador por app só corre com a vista Apps à vista.
         .onChange(of: navigation.route) { route in
             if route == .apps { apps.start(monitor: monitor) } else { apps.stop() }
         }
-        .background {
-            // Esc e ⌘[ voltam ao nível 1. No nível 1 não existem, e o Esc
-            // fecha o painel, como em qualquer popover.
-            if navigation.route != .main {
-                Group {
-                    Button("") { navigation.pop(animated: false, reduceMotion: reduceMotion) }
-                        .keyboardShortcut(.cancelAction)
-                    Button("") { navigation.pop(animated: false, reduceMotion: reduceMotion) }
-                        .keyboardShortcut("[", modifiers: .command)
-                }
-                .opacity(0)
-                .frame(width: 0, height: 0)
-                .accessibilityHidden(true)
+        .background { PanelBackShortcuts(navigation: navigation) }
+    }
+}
+
+/// Esc e ⌘[ voltam ao nível 1. No nível 1 não existem, e o Esc fecha o
+/// painel, como em qualquer popover. Vêm do teclado, por isso não animam.
+struct PanelBackShortcuts: View {
+    @ObservedObject var navigation: PanelNavigation
+
+    var body: some View {
+        if navigation.route != .main {
+            Group {
+                Button("") { navigation.pop(animated: false, reduceMotion: true) }
+                    .keyboardShortcut(.cancelAction)
+                Button("") { navigation.pop(animated: false, reduceMotion: true) }
+                    .keyboardShortcut("[", modifiers: .command)
             }
+            // Só atalhos: fora do percurso do Tab, onde eram paragens sem anel.
+            .focusable(false)
+            .opacity(0)
+            .frame(width: 0, height: 0)
+            .accessibilityHidden(true)
         }
     }
 }
@@ -185,8 +197,11 @@ private struct PanelHeader: View {
                         .foregroundStyle(copy.isDimmed ? PFColor.fg2 : PFColor.fg)
                 }
                 .accessibilityElement(children: .combine)
+                .accessibilitySortPriority(3)
                 Spacer(minLength: 0)
+                // O VoiceOver lê o número e a linha de estado seguidos; o botão vem depois.
                 PanelMenuButton()
+                    .accessibilitySortPriority(1)
             }
 
             // A terceira linha passa por baixo do botão e usa a largura toda:
@@ -206,6 +221,7 @@ private struct PanelHeader: View {
             }
             .padding(.trailing, PFSpace.xs)
             .accessibilityElement(children: .combine)
+            .accessibilitySortPriority(2)
         }
         .accessibilityElement(children: .contain)
         .padding(EdgeInsets(top: 14, leading: PFSpace.popoverMargin, bottom: PFSpace.m,

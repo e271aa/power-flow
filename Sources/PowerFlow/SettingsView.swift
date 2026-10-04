@@ -257,10 +257,11 @@ private struct AlertsSection: View {
             toggle("s_al_temp", isOn: $temperature)
             dependent("s_al_above", enabled: temperature) {
                 HStack(spacing: PFSpace.s) {
+                    // Com o alerta desligado o valor esbate-se com o passo ao lado.
                     Text(PFFormat(locale: L10n.locale).celsius(Double(temperatureLimit), decimals: 0))
                         .font(PFFont.body)
                         .monospacedDigit()
-                        .foregroundStyle(PFColor.fg)
+                        .foregroundStyle(temperature ? PFColor.fg : PFColor.fg2)
                     Stepper(L10n.string("s_al_above"), value: $temperatureLimit,
                             in: AlertSettings.temperatureLimits, step: 1)
                         .labelsHidden()
@@ -286,6 +287,7 @@ private struct AlertsSection: View {
                 Text(L10n.string("s_al_note"))
                     .font(PFFont.secondary)
                     .foregroundStyle(PFColor.fg2)
+                    .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
                 Button(L10n.string("s_al_btn")) { AlertNotifier.openSystemSettings() }
@@ -350,6 +352,8 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
     private var window: NSWindow?
     /// Dá a bateria do Mac, para o mosaico «Ícone e %».
     weak var monitor: PowerMonitor?
+    /// Fixa se o Mac tem bateria, sem monitor (`--window --view settings --state`).
+    var hasBatteryOverride: Bool?
 
     func show() {
         if window == nil { window = makeWindow() }
@@ -361,7 +365,8 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
     private func makeWindow() -> NSWindow {
         // O `Form` não tem altura própria que o controlador de vista leve à
         // janela (saía só com a barra de título): mede-se na vista e fixa-se.
-        let hosting = NSHostingView(rootView: SettingsView(hasBattery: monitor?.snapshot.battery.isPresent ?? true))
+        let hosting = NSHostingView(rootView: SettingsView(hasBattery: hasBatteryOverride
+                                                           ?? monitor?.snapshot.battery.isPresent ?? true))
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: hosting.fittingSize),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.contentView = hosting

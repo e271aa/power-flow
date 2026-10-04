@@ -14,6 +14,8 @@ enum Entry {
 
     static func main() {
         let arguments = CommandLine.arguments
+        // Textos 30 % mais compridos, para ver o que se corta (Fase 10).
+        L10n.pseudoLocalizes = arguments.contains("--pseudo")
 
         if arguments.contains("--dump") {
             Diagnostics.dump()
@@ -151,6 +153,30 @@ enum Entry {
         if arguments.contains("--window") {
             MainActor.assumeIsolated {
                 let delegate = WindowModeDelegate()
+                func value(after flag: String) -> String? {
+                    guard let at = arguments.firstIndex(of: flag), at + 1 < arguments.count else { return nil }
+                    return arguments[at + 1]
+                }
+                if let name = value(after: "--state") {
+                    guard let state = PanelFixture(rawValue: name) else {
+                        print("Estado desconhecido: \(name).")
+                        exit(2)
+                    }
+                    delegate.options.state = state
+                }
+                if let name = value(after: "--view") {
+                    if name == "settings" {
+                        delegate.options.settings = true
+                    } else if let route = Snapshotter.routes[name] {
+                        delegate.options.route = route
+                    }
+                }
+                delegate.options.firstRun = arguments.contains("--first-run")
+                if let folder = value(after: "--focus-walk") {
+                    let steps = arguments.firstIndex(of: "--focus-walk").flatMap {
+                        $0 + 2 < arguments.count ? Int(arguments[$0 + 2]) : nil } ?? 8
+                    delegate.options.focusWalk = (folder, steps)
+                }
                 app.delegate = delegate
                 app.setActivationPolicy(.regular)
                 app.run()
@@ -218,6 +244,8 @@ enum Entry {
             delegate.forceReduceMotion = arguments.contains("--reduce-motion")
             delegate.logTitleChanges = arguments.contains("--log-title")
             delegate.logAlerts = arguments.contains("--log-alerts")
+            delegate.panelPNG = arguments.firstIndex(of: "--panel-png").flatMap {
+                $0 + 1 < arguments.count ? arguments[$0 + 1] : nil }
             app.delegate = delegate
             app.setActivationPolicy(.accessory)
             app.run()

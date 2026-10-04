@@ -53,6 +53,8 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
     private var alertSettings = AppSettings.alerts()
     /// Escreve cada alerta disparado. Serve para medir sem esperar pelo Centro de Notificações.
     var logAlerts = false
+    /// `--panel-check --panel-png <ficheiro>`: desenha o painel aberto num PNG.
+    var panelPNG: String?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let monitor = PowerMonitor(persistsHistory: true)

@@ -35,7 +35,20 @@ public enum L10n {
 
     public static func string(_ key: String, language: String, args: [CVarArg] = []) -> String {
         let format = table(for: language).localizedString(forKey: key, value: key, table: nil)
-        return args.isEmpty ? format : String(format: format, locale: Locale(identifier: language), arguments: args)
+        let text = args.isEmpty ? format : String(format: format, locale: Locale(identifier: language), arguments: args)
+        return pseudoLocalizes ? pseudo(text) : text
+    }
+
+    /// Pseudo-localização (`--pseudo`): cada texto sai 30 % mais comprido e
+    /// entre «⟦ ⟧». Um texto cortado perde o «⟧», e vê-se numa captura.
+    public nonisolated(unsafe) static var pseudoLocalizes = false
+
+    /// O texto com 30 % mais carateres, contando os parênteses, arredondado para cima.
+    public static func pseudo(_ text: String) -> String {
+        guard !text.isEmpty else { return text }
+        let extra = Int((Double(text.count) * 0.3).rounded(.up))
+        let padding = String(repeating: "ü", count: max(extra - 2, 0))
+        return "⟦" + text + padding + "⟧"
     }
 
     /// O texto por aplicar, sem argumentos (para os testes de paridade).

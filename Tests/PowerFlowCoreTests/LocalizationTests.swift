@@ -102,4 +102,19 @@ final class FormattersTests: XCTestCase {
         XCTAssertEqual(pt.duration(minutes: 120), "2\(nb)h\(nb)0\(nb)min")
         XCTAssertEqual(pt.duration(minutes: -5), "0\(nb)min")
     }
+
+    /// Fase 10: a pseudo-localização tem de dar 30 % a mais, ou a verificação dos cortes não vale.
+    func testPseudoLocalizacaoAlongaTrintaPorCento() {
+        for text in ["Sistema", "Ecrã e I/O", "A carregar · 100 % em 1 h 5 min", "W"] {
+            let pseudo = L10n.pseudo(text)
+            XCTAssertTrue(pseudo.hasPrefix("⟦") && pseudo.hasSuffix("⟧"), pseudo)
+            XCTAssertGreaterThanOrEqual(Double(pseudo.count), Double(text.count) * 1.3, pseudo)
+        }
+        XCTAssertEqual(L10n.pseudo(""), "")
+
+        L10n.pseudoLocalizes = true
+        defer { L10n.pseudoLocalizes = false }
+        let shown = L10n.string("n_system", language: "pt-PT")
+        XCTAssertTrue(shown.hasPrefix("⟦") && shown.hasSuffix("⟧"), shown)
+    }
 }

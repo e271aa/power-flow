@@ -138,7 +138,7 @@ struct AppsView: View {
         .padding(.horizontal, -Self.hoverInset)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(row.accessibilityLabel)
-        .accessibilityAddTraits(row.pid == nil ? [] : .isButton)
+        .accessibilityAddTraits(row.pid == nil ? .isStaticText : .isButton)
     }
 
     private func otherRow(_ copy: AppsCopy) -> some View {
@@ -169,6 +169,7 @@ struct AppsView: View {
         .frame(height: Self.rowHeight)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(copy.otherAccessibilityLabel)
+        .accessibilityAddTraits(.isStaticText)
     }
 
     /// A barra de 4 pt: trilho `fill`, valor na cor da linha.
