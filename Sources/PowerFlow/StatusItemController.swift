@@ -24,6 +24,8 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
     private var shownPluggedIn: Bool?
     /// Onde o painel está. Novo a cada abertura: o painel abre sempre no nível 1.
     private(set) var navigation: PanelNavigation?
+    /// A energia por app. Vive tanto como a app; só amostra com a vista Apps aberta.
+    let apps = AppEnergyModel()
 
     /// Quando ligado, relata o estado do item e sai. Serve o `--diagnose`.
     var diagnoseAndExit = false
@@ -36,6 +38,8 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
     /// Trata o painel como se Reduzir Movimento estivesse ligado, sem mexer
     /// na definição do sistema. Serve o `--reduce-motion`, para medir.
     var forceReduceMotion = false
+    /// Com o `--open-panel`, abre já na vista «Consumo por app».
+    var openAppsOnOpen = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let monitor = PowerMonitor(persistsHistory: true)
@@ -60,6 +64,9 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
         center.addObserver(self, selector: #selector(holdPanel),
                            name: RemoteCommand.holdPanel.name, object: nil,
                            suspensionBehavior: .deliverImmediately)
+        center.addObserver(self, selector: #selector(holdApps),
+                           name: RemoteCommand.holdApps.name, object: nil,
+                           suspensionBehavior: .deliverImmediately)
         center.addObserver(self, selector: #selector(closePanel),
                            name: RemoteCommand.closePanel.name, object: nil,
                            suspensionBehavior: .deliverImmediately)
@@ -72,7 +79,7 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
         if let openPanelAfter {
             DispatchQueue.main.asyncAfter(deadline: .now() + openPanelAfter) {
                 MainActor.assumeIsolated {
-                    self.holdPanel()
+                    if self.openAppsOnOpen { self.holdApps() } else { self.holdPanel() }
                     print("painel aberto: \(self.popover?.isShown ?? false)")
                 }
             }
@@ -146,6 +153,12 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
         openPanel(pinned: true)
     }
 
+    /// Abre o painel fixo, já na vista «Consumo por app».
+    @objc func holdApps() {
+        openPanel(pinned: true)
+        navigation?.push(.apps, reduceMotion: true)
+    }
+
     private func openPanel(pinned: Bool) {
         guard let popover, let monitor, let button = statusItem?.button else { return }
         popover.behavior = pinned ? .applicationDefined : .transient
@@ -154,7 +167,7 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
         monitor.setFastSampling(true)
         let navigation = PanelNavigation()
         self.navigation = navigation
-        let hosting = NSHostingController(rootView: PanelView(monitor: monitor, navigation: navigation)
+        let hosting = NSHostingController(rootView: PanelView(monitor: monitor, navigation: navigation, apps: apps)
             .environment(\.forceReduceMotion, forceReduceMotion))
         hosting.sizingOptions = .preferredContentSize
         popover.contentViewController = hosting
@@ -178,6 +191,7 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
     private func releasePanel() {
         popover?.contentViewController = nil
         navigation = nil
+        apps.stop()
         monitor?.setFastSampling(false)
     }
 

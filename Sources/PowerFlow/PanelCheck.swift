@@ -113,16 +113,29 @@ extension StatusItemController {
                   "Esc volta ao nível 1 sem fechar o painel")
             self.navigation?.push(.apps, reduceMotion: reduceMotion)
         }
-        after(navigated + 2.5) {
+        after(navigated + 2.9) {
             check(self.navigation?.route == .apps, "push para «Por app»")
+            check(self.apps.isSampling, "«Por app»: o amostrador por app está ligado")
+            let height = self.popover?.contentSize.height ?? 0
+            check(self.apps.report.measuredAt != nil,
+                  "«Por app»: há média 1,3 s depois de entrar (\(self.apps.report.apps.count) apps)")
+            check(height > 0 && height != mainHeight,
+                  String(format: "a altura acompanha «Por app»: %.0f pt no nível 1, %.0f pt em «Por app»",
+                         mainHeight, height))
             self.sendKey("[", code: 33, modifiers: .command)
         }
-        after(navigated + 3.1) {
+        after(navigated + 3.5) {
             check(self.navigation?.route == .main && self.popover?.isShown == true,
                   "⌘[ volta ao nível 1 sem fechar o painel")
+            check(!self.apps.isSampling, "de volta ao nível 1: o amostrador por app parou")
+            // Fechar o painel com a vista Apps aberta também o pára.
+            self.navigation?.push(.apps, reduceMotion: reduceMotion)
+        }
+        after(navigated + 4.0) {
+            check(self.apps.isSampling, "«Por app» outra vez: o amostrador volta a ligar")
             self.closePanel()
         }
-        let closed = navigated + 4
+        let closed = navigated + 5
         after(closed) {
             wakeups = 0
             cpuAtStart = Self.cpuSeconds()
@@ -134,6 +147,7 @@ extension StatusItemController {
             check(self.popover?.contentViewController == nil,
                   "fechado: o conteúdo do painel deixou de existir")
             check(self.monitor?.isSamplingFast == false, "fechado: leituras a 10 Hz paradas")
+            check(!self.apps.isSampling, "fechado: o amostrador por app parado")
             check(cpu <= Self.closedBudget,
                   String(format: "fechado: %.2f %% de CPU (máximo %.0f %%), %.0f despertares/s",
                          cpu, Self.closedBudget, Double(wakeups) / Self.closedWindow))

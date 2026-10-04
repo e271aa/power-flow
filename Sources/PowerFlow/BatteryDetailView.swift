@@ -74,26 +74,3 @@ struct BatteryDetailView: View {
         }
     }
 }
-
-/// «Consumo por app». O conteúdo é da Fase 7; por agora só o que já se sabe: o total.
-struct AppsView: View {
-    let total: String
-    let back: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            PanelSubHeader(title: L10n.string("a_title"), subtitle: L10n.string("a_sub"), back: back)
-
-            HStack {
-                Text(L10n.string("a_total"))
-                Spacer(minLength: PFSpace.s)
-                Text(total).fontWeight(.semibold).monospacedDigit()
-            }
-            .font(PFFont.body)
-            .foregroundStyle(PFColor.fg)
-            .padding(.vertical, 10)
-            .padding(.horizontal, PFSpace.popoverMargin)
-            .accessibilityElement(children: .combine)
-        }
-    }
-}

@@ -48,6 +48,7 @@ enum Snapshotter {
         var snapshot: PowerSnapshot
         let sensorsAvailable: Bool
         let history: HistoryStore
+        var apps = AppsInput()
         if let state = options.state {
             snapshot = state.snapshot
             // Os números de bateria do protótipo, que o estado não traz.
@@ -58,9 +59,12 @@ enum Snapshotter {
             }
             sensorsAvailable = state.sensorsAvailable
             history = state.history(fresh: options.isFresh, now: snapshot.timestamp)
+            apps = AppsInput(report: state.apps(at: snapshot.timestamp), systemAverage: snapshot.systemTotal)
         } else {
             let monitor = PowerMonitor()
             monitor.setFastSampling(true)
+            let model = AppEnergyModel()
+            if options.route == .apps { model.start(monitor: monitor) }
 
             // Deixar o histórico encher, senão o gráfico sai vazio.
             let deadline = Date().addingTimeInterval(options.warmUpSeconds)
@@ -70,6 +74,8 @@ enum Snapshotter {
             snapshot = monitor.snapshot
             sensorsAvailable = monitor.isAvailable
             history = monitor.history
+            model.stop()
+            apps = model.input
         }
         switch options.missing {
         case .soc:      snapshot.socPower = nil
@@ -88,7 +94,7 @@ enum Snapshotter {
             content = AnyView(PanelScreen(
                 route: options.route, snapshot: snapshot,
                 panel: PanelState(snapshot: snapshot, sensorsAvailable: sensorsAvailable),
-                history: history, open: { _ in }, back: {}, historyPeriod: options.period))
+                history: history, apps: apps, open: { _ in }, back: {}, historyPeriod: options.period))
         }
 
         let appearance = options.appearance.flatMap { NSAppearance(named: $0) }

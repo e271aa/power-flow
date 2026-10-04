@@ -18,7 +18,7 @@ final class WindowModeDelegate: NSObject, NSApplicationDelegate {
         monitor.setFastSampling(true)
         self.monitor = monitor
 
-        let hosting = NSHostingController(rootView: PanelView(monitor: monitor, navigation: PanelNavigation()))
+        let hosting = NSHostingController(rootView: PanelView(monitor: monitor, navigation: PanelNavigation(), apps: AppEnergyModel()))
         hosting.sizingOptions = .preferredContentSize
 
         let window = NSWindow(contentViewController: hosting)

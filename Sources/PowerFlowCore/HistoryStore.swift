@@ -195,6 +195,30 @@ public final class HistoryStore {
         return (closed + open).min().map { max(0, now.timeIntervalSince($0)) } ?? 0
     }
 
+    /// O consumo médio do sistema nos últimos `seconds` até `now`. É o total
+    /// da vista «Consumo por app», que mostra médias da mesma janela.
+    ///
+    /// Até 2 min vem das leituras de 1 s; acima, dos pontos de 30 s, com o
+    /// intervalo em curso a pesar as leituras que já tem. `nil`: sem dados.
+    public func average(over seconds: TimeInterval, now: Date = Date()) -> Double? {
+        let from = now.addingTimeInterval(-seconds)
+        if seconds <= HistoryPeriod.twoMinutes.duration {
+            let values = (rings[.twoMinutes] ?? []).filter { $0.t > from && $0.t <= now }.map(\.system)
+            return values.isEmpty ? nil : values.reduce(0, +) / Double(values.count)
+        }
+        let period = HistoryPeriod.oneHour
+        var sum = 0.0, weight = 0.0
+        for point in rings[period] ?? [] where point.t >= from && point.t <= now {
+            sum += point.system * period.resolution
+            weight += period.resolution
+        }
+        if let current = pending[period], current.count > 0 {
+            sum += current.systemSum
+            weight += Double(current.count)
+        }
+        return weight > 0 ? sum / weight : nil
+    }
+
     /// «24 h» só faz sentido com pelo menos uma hora de dados.
     public func isAvailable(_ period: HistoryPeriod, now: Date = Date()) -> Bool {
         period != .day || coverage(now: now) >= 3600

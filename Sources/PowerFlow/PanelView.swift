@@ -6,6 +6,7 @@ import SwiftUI
 struct PanelView: View {
     @ObservedObject var monitor: PowerMonitor
     @ObservedObject var navigation: PanelNavigation
+    @ObservedObject var apps: AppEnergyModel
 
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.forceReduceMotion) private var forceReduceMotion
@@ -15,7 +16,7 @@ struct PanelView: View {
     var body: some View {
         ZStack(alignment: .top) {
             PanelScreen(route: navigation.route, snapshot: monitor.snapshot, panel: monitor.panel,
-                        history: monitor.history,
+                        history: monitor.history, apps: apps.input,
                         open: { navigation.push($0, reduceMotion: reduceMotion) },
                         back: { navigation.pop(animated: true, reduceMotion: reduceMotion) })
                 .id(navigation.route)
@@ -23,6 +24,10 @@ struct PanelView: View {
         }
         .frame(width: PanelContent.width, alignment: .top)
         .clipped()
+        // O amostrador por app só corre com a vista Apps à vista.
+        .onChange(of: navigation.route) { route in
+            if route == .apps { apps.start(monitor: monitor) } else { apps.stop() }
+        }
         .background {
             // Esc e ⌘[ voltam ao nível 1. No nível 1 não existem, e o Esc
             // fecha o painel, como em qualquer popover.
@@ -48,6 +53,7 @@ struct PanelScreen: View {
     let snapshot: PowerSnapshot
     let panel: PanelState
     let history: HistoryStore
+    let apps: AppsInput
     let open: (PanelRoute) -> Void
     let back: () -> Void
     /// Fixa o período do histórico. Serve o `--snapshot`.
@@ -62,7 +68,7 @@ struct PanelScreen: View {
             BatteryDetailView(copy: BatteryCopy(snapshot: snapshot, panel: panel), back: back)
                 .frame(width: PanelContent.width, alignment: .leading)
         case .apps:
-            AppsView(total: PFFormat().watts(snapshot.systemTotal ?? 0), back: back)
+            AppsView(input: apps, back: back)
                 .frame(width: PanelContent.width, alignment: .leading)
         }
     }

@@ -168,3 +168,23 @@ extension PanelFixture {
         }
     }
 }
+
+extension PanelFixture {
+    /// As cinco apps do protótipo, escaladas pela potência do SoC do estado
+    /// como lá: a 24 W de SoC são 9,6 · 3,2 · 2,7 · 1,9 · 0,6 W.
+    public func apps(language: String = L10n.language, at date: Date = Date()) -> AppEnergyReport {
+        let scale = max(snapshot.socPower ?? 0, 1) / 24
+        let music = language.hasPrefix("en") ? "Music" : "Música"
+        let base: [(String, String, Double)] = [
+            ("Xcode", "com.apple.dt.Xcode", 9.6),
+            ("Safari", "com.apple.Safari", 3.2),
+            ("Docker", "com.docker.docker", 2.7),
+            ("Figma", "com.figma.Desktop", 1.9),
+            (music, "com.apple.Music", 0.6),
+        ]
+        let apps = base.map { name, bundle, watts in
+            AppUsage(key: bundle, name: name, bundleIdentifier: bundle, watts: watts * scale)
+        }
+        return AppEnergyReport(apps: apps, span: AppEnergySampler.window, measuredAt: date)
+    }
+}

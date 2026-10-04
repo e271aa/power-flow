@@ -36,6 +36,12 @@ enum Entry {
             print("24 h       : \(store.isAvailable(.day) ? "disponível" : "ainda não (pede 1 h de dados)")")
             exit(0)
         }
+        if let index = arguments.firstIndex(of: "--dump-apps") {
+            let seconds = index + 1 < arguments.count ? Double(arguments[index + 1]) ?? 16 : 16
+            let forced: AppEnergyMethod? = arguments.contains("--rusage") && arguments.contains("v4") ? .cpuTime : nil
+            MainActor.assumeIsolated { DumpApps.run(seconds: seconds, forcing: forced) }
+            exit(0)
+        }
         if arguments.contains("--dump-keys") {
             Diagnostics.dumpAllPowerKeys()
             exit(0)
@@ -145,7 +151,7 @@ enum Entry {
                 if wantsClose {
                     RemoteCommand.closePanel.post()
                 } else if arguments.contains("--open-panel") {
-                    RemoteCommand.holdPanel.post()
+                    (arguments.contains("apps") ? RemoteCommand.holdApps : RemoteCommand.holdPanel).post()
                 } else {
                     RemoteCommand.showPanel.post()
                 }
@@ -171,6 +177,7 @@ enum Entry {
             delegate.diagnoseAndExit = isDiagnose
             delegate.checkPanelAndExit = isPanelCheck
             delegate.openPanelAfter = openPanelAfter
+            delegate.openAppsOnOpen = arguments.contains("--view") && arguments.contains("apps")
             delegate.forceReduceMotion = arguments.contains("--reduce-motion")
             app.delegate = delegate
             app.setActivationPolicy(.accessory)

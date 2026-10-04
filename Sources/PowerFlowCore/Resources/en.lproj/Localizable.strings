@@ -100,10 +100,21 @@
 /* ── Consumo por app ── */
 "a_title" = "Energy by app";
 "a_sub" = "Average over the last 5 min";
+/* Before 5 min of readings. args: t (duration) */
+"a_sub_part" = "Average over the last %@";
+"a_wait" = "Measuring…";
+/* Next to the name of an app that is no longer running */
+"a_ended" = "quit";
+/* args: name, a_ended */
+"a_name_ended" = "%1$@, %2$@";
+/* VoiceOver for a row. args: name, value */
+"vo_app" = "%1$@: %2$@";
 "a_other" = "System & other";
-"a_other_note" = "Display, macOS services and other users’ processes, which can only be split with admin rights.";
+"a_other_note" = "Display, GPU, macOS services and other users’ processes, which can only be split with admin rights.";
 "a_total" = "System total";
-"a_est" = "Per-app values are estimated from each process’s CPU and GPU energy.";
+"a_est" = "Per-app values are estimated from each process’s CPU energy.";
+/* When macOS does not provide per-process energy */
+"a_est_cpu" = "Per-app values are estimated from each process’s CPU time and the SoC power.";
 
 /* ── Bateria (detalhe) ── */
 "b_health" = "Health";

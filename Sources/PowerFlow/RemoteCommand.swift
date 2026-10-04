@@ -10,6 +10,9 @@ enum RemoteCommand: String {
     /// clique noutra janela.
     case holdPanel = "local.powerflow.PowerFlow.holdPanel"
     case closePanel = "local.powerflow.PowerFlow.closePanel"
+    /// Como `holdPanel`, já na vista «Consumo por app». Serve o
+    /// `--open-panel --view apps`, para medir o amostrador.
+    case holdApps = "local.powerflow.PowerFlow.holdApps"
 
     var name: Notification.Name { Notification.Name(rawValue) }
 
