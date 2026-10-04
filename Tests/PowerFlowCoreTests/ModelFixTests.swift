@@ -278,4 +278,17 @@ final class ModelFixTests: XCTestCase {
             return XCTFail("depois de a primeira sair, o trinco devia estar livre")
         }
     }
+
+    // MARK: - E1: leituras rápidas com o painel fechado
+
+    /// O bug (Fase 0): as leituras de 10 Hz corriam com o painel fechado. Teste da Fase 12.
+    /// Fechado, só fica o tique de 1 Hz, seja qual for o ritmo das Definições.
+    func testE1ComOPainelFechadoNaoHaLeiturasRapidas() {
+        for rate in SampleRate.allCases {
+            XCTAssertNil(rate.fastHz(panelIsOpen: false), "\(rate) com o painel fechado")
+        }
+        XCTAssertNil(SampleRate.low.fastHz(panelIsOpen: true))
+        XCTAssertEqual(SampleRate.normal.fastHz(panelIsOpen: true), 2)
+        XCTAssertEqual(SampleRate.high.fastHz(panelIsOpen: true), 10)
+    }
 }

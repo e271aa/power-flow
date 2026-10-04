@@ -69,7 +69,7 @@ final class PowerMonitor: ObservableObject {
     }
 
     private func applySampling() {
-        let wanted = panelIsOpen ? sampleRate.fastHz : nil
+        let wanted = sampleRate.fastHz(panelIsOpen: panelIsOpen)
         guard wanted != fastHz else { return }
         fastHz = wanted
         railTimer?.invalidate()

@@ -24,6 +24,12 @@ public enum SampleRate: String, CaseIterable, Sendable {
         case .high: 10
         }
     }
+
+    /// O ritmo rápido que deve estar a correr. Com o painel fechado nenhum (E1):
+    /// as leituras de 10 Hz com o painel escondido custavam metade do CPU fechado.
+    public func fastHz(panelIsOpen: Bool) -> Int? {
+        panelIsOpen ? fastHz : nil
+    }
 }
 
 /// As preferências guardadas em `UserDefaults`. O arranque com a sessão não
