@@ -37,21 +37,30 @@ extension StatusItemController {
         ) { _, _ in wakeups += 1 }
         CFRunLoopAddObserver(CFRunLoopGetMain(), observer, .commonModes)
 
+        // `--panel-trace <ficheiro>`: cada ação, cada verificação e cada mudança
+        // do que os passos leem, com a hora, para as falhas intermitentes.
+        let trace = panelTrace.map { PanelTrace(path: $0) }
         var failures = 0
         func check(_ ok: Bool, _ label: String) {
             print("  \(ok ? "ok    " : "FALHOU")  \(label)")
+            trace?.write("\(ok ? "ok" : "FALHOU"): \(label)")
             if !ok { failures += 1 }
         }
+        func act(_ label: String) { trace?.write("ação: \(label)") }
+        // Os passos correm por ordem, cada um à distância certa do anterior.
+        // Agendados todos ao começar com `asyncAfter`, chegavam até 5 % do
+        // prazo atrasados (1,2 s aos 24 s), e dois passos seguidos podiam
+        // correr com 0,02 s entre eles em vez de 0,6 s (Fase 14).
+        var steps: [(at: TimeInterval, work: @MainActor () -> Void)] = []
         func after(_ seconds: TimeInterval, _ work: @escaping @MainActor () -> Void) {
-            DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
-                MainActor.assumeIsolated { work() }
-            }
+            steps.append((seconds, work))
         }
 
         let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
             || forceReduceMotion
         var before: [CGFloat] = []
         var cpuAtStart = 0.0
+        var windowStart = Date()
 
         print("== Verificação do painel (Reduzir Movimento: \(reduceMotion ? "ligado" : "desligado")) ==")
 
@@ -70,6 +79,7 @@ extension StatusItemController {
         after(opened + 1) {
             wakeups = 0
             cpuAtStart = Self.cpuSeconds()
+            windowStart = Date()
             before = self.particlePhases()
         }
         after(opened + 1 + Self.openWindow) {
@@ -79,13 +89,14 @@ extension StatusItemController {
                 print("  Inconclusivo: o painel foi fechado por fora a meio. Repete sem clicar.")
                 exit(3)
             }
-            let cpu = (Self.cpuSeconds() - cpuAtStart) / Self.openWindow * 100
+            let elapsed = Date().timeIntervalSince(windowStart)
+            let cpu = (Self.cpuSeconds() - cpuAtStart) / elapsed * 100
             let budget = reduceMotion ? Self.reducedMotionBudget : Self.openBudget
             let phases = self.particlePhases()
 
             check(cpu <= budget,
                   String(format: "aberto: %.1f %% de CPU (máximo %.0f %%), %.0f despertares/s",
-                         cpu, budget, Double(wakeups) / Self.openWindow))
+                         cpu, budget, Double(wakeups) / elapsed))
             let expectedHz = AppSettings.sampleRate().fastHz
             check(self.monitor?.fastHz == expectedHz,
                   "aberto: leituras rápidas a \(self.monitor?.fastHz.map { "\($0) Hz" } ?? "1 Hz (Baixa)"), como nas Definições")
@@ -104,8 +115,13 @@ extension StatusItemController {
         // Navegação: entrar no nível 2 como os botões entram, e voltar pelo teclado.
         let navigated = opened + 1 + Self.openWindow
         var mainHeight: CGFloat = 0
+        if let trace {
+            after(navigated) { trace.watch(self) }
+            after(navigated + 13.2) { trace.stopWatching() }
+        }
         after(navigated + 0.1) {
             mainHeight = self.popover?.contentSize.height ?? 0
+            act("push bateria")
             self.navigation?.push(.battery, reduceMotion: reduceMotion)
         }
         after(navigated + 1.0) {
@@ -114,11 +130,13 @@ extension StatusItemController {
             check(height > 0 && height != mainHeight,
                   String(format: "a altura do painel acompanha a vista: %.0f pt no nível 1, %.0f pt na bateria",
                          mainHeight, height))
+            act("tecla Esc")
             self.sendKey("\u{1B}", code: 53)
         }
         after(navigated + 1.6) {
             check(self.navigation?.route == .main && self.popover?.isShown == true,
                   "Esc volta ao nível 1 sem fechar o painel")
+            act("push «Por app»")
             self.navigation?.push(.apps, reduceMotion: reduceMotion)
         }
         after(navigated + 2.9) {
@@ -130,6 +148,7 @@ extension StatusItemController {
             check(height > 0 && height != mainHeight,
                   String(format: "a altura acompanha «Por app»: %.0f pt no nível 1, %.0f pt em «Por app»",
                          mainHeight, height))
+            act("tecla ⌘[")
             self.sendKey("[", code: 33, modifiers: .command)
         }
         after(navigated + 3.5) {
@@ -137,6 +156,7 @@ extension StatusItemController {
                   "⌘[ volta ao nível 1 sem fechar o painel")
             check(!self.apps.isSampling, "de volta ao nível 1: o amostrador por app parou")
             // Fechar o painel com a vista Apps aberta também o pára.
+            act("push «Por app» outra vez")
             self.navigation?.push(.apps, reduceMotion: reduceMotion)
         }
         after(navigated + 4.0) {
@@ -180,15 +200,19 @@ extension StatusItemController {
         // A mudança da preferência chega à vista pelo `@AppStorage`, às vezes
         // mais de 0,6 s depois (medido na Fase 10): o cartão tem 2 s para aparecer.
         after(navigated + 5.8) {
+            act("volta ao nível 1; pf.firstRunDone = falso")
             self.navigation?.pop(animated: false, reduceMotion: true)
             defaults.set(false, forKey: AppSettings.firstRunDoneKey)
         }
         after(navigated + 7.8) {
             check(FirstRunCard.shownCount == 1, "primeiro arranque: o cartão aparece (\(FirstRunCard.shownCount) à vista)")
+            act("tecla Return")
             self.sendKey("\r", code: 36)
         }
         after(navigated + 8.4) {
             check(AppSettings.firstRunDone(), "«Percebi» (Return) grava pf.firstRunDone")
+            check(FirstRunCard.lastDismissal == false,
+                  "«Percebi» pelo Return fecha o cartão sem animar (D7b; \(FirstRunCard.lastDismissal.map { $0 ? "animou" : "não animou" } ?? "não fechou"))")
             check(FirstRunCard.shownCount == 0, "depois de «Percebi» o cartão sai")
             self.closePanel()
         }
@@ -247,9 +271,11 @@ extension StatusItemController {
         after(closed) {
             wakeups = 0
             cpuAtStart = Self.cpuSeconds()
+            windowStart = Date()
         }
         after(closed + Self.closedWindow) {
-            let cpu = (Self.cpuSeconds() - cpuAtStart) / Self.closedWindow * 100
+            let elapsed = Date().timeIntervalSince(windowStart)
+            let cpu = (Self.cpuSeconds() - cpuAtStart) / elapsed * 100
 
             check(self.popover?.isShown == false, "o painel fecha por código")
             check(self.popover?.contentViewController == nil,
@@ -258,12 +284,35 @@ extension StatusItemController {
             check(!self.apps.isSampling, "fechado: o amostrador por app parado")
             check(cpu <= Self.closedBudget,
                   String(format: "fechado: %.2f %% de CPU (máximo %.0f %%), %.0f despertares/s",
-                         cpu, Self.closedBudget, Double(wakeups) / Self.closedWindow))
+                         cpu, Self.closedBudget, Double(wakeups) / elapsed))
 
             if let savedFirstRun { defaults.set(savedFirstRun, forKey: AppSettings.firstRunDoneKey) } else { defaults.removeObject(forKey: AppSettings.firstRunDoneKey) }
             print(failures == 0 ? "Painel: tudo certo." : "Painel: \(failures) falha(s).")
             exit(failures == 0 ? 0 : 1)
         }
+        Self.runInOrder(steps)
+    }
+
+    /// Corre os passos por ordem de tempo (os do mesmo instante pela ordem em
+    /// que entraram). Cada um espera, a partir do fim do anterior, a diferença
+    /// entre os dois tempos, num temporizador sem tolerância.
+    private static func runInOrder(_ steps: [(at: TimeInterval, work: @MainActor () -> Void)]) {
+        let ordered = steps.enumerated()
+            .sorted { ($0.element.at, $0.offset) < ($1.element.at, $1.offset) }
+            .map(\.element)
+        func run(_ index: Int, after previous: TimeInterval) {
+            guard index < ordered.count else { return }
+            let step = ordered[index]
+            let timer = Timer(timeInterval: max(0, step.at - previous), repeats: false) { _ in
+                MainActor.assumeIsolated {
+                    step.work()
+                    run(index + 1, after: step.at)
+                }
+            }
+            timer.tolerance = 0
+            RunLoop.main.add(timer, forMode: .common)
+        }
+        run(0, after: 0)
     }
 
     /// Desenha o painel aberto a partir da árvore de camadas da janela do
@@ -284,15 +333,32 @@ extension StatusItemController {
     }
 
     /// Uma tecla premida na janela do painel, como se viesse do teclado.
+    ///
+    /// Entra na fila de eventos (`postEvent`), como na sonda: só assim a app a
+    /// recebe como `NSApp.currentEvent` e a reconhece como tecla. Por
+    /// `sendEvent`, o Return fechava o cartão pelo caminho animado do clique.
     private func sendKey(_ characters: String, code: UInt16, modifiers: NSEvent.ModifierFlags = []) {
-        guard let window = popover?.contentViewController?.view.window,
-              let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers,
-                                           timestamp: ProcessInfo.processInfo.systemUptime,
-                                           windowNumber: window.windowNumber, context: nil,
-                                           characters: characters, charactersIgnoringModifiers: characters,
-                                           isARepeat: false, keyCode: code)
-        else { return }
-        NSApp.sendEvent(event)
+        guard let window = popover?.contentViewController?.view.window else { return }
+        for type in [NSEvent.EventType.keyDown, .keyUp] {
+            if let event = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: modifiers,
+                                            timestamp: ProcessInfo.processInfo.systemUptime,
+                                            windowNumber: window.windowNumber, context: nil,
+                                            characters: characters, charactersIgnoringModifiers: characters,
+                                            isARepeat: false, keyCode: code) {
+                NSApp.postEvent(event, atStart: false)
+            }
+        }
+    }
+
+    /// O que os passos do `--panel-check` leem, numa linha.
+    var traceState: String {
+        let report = apps.report
+        let dismissal = FirstRunCard.lastDismissal.map { $0 ? "animado" : "sem animação" } ?? "—"
+        return "rota \(navigation.map { "\($0.route)" } ?? "—") · painel \(popover?.isShown == true ? "aberto" : "fechado")"
+            + " · amostrador \(apps.isSampling ? "ligado" : "parado")"
+            + " · média \(report.measuredAt == nil ? "nenhuma" : "\(report.apps.count) apps")"
+            + " · cartões \(FirstRunCard.shownCount) · firstRunDone \(AppSettings.firstRunDone())"
+            + " · último «Percebi» \(dismissal)"
     }
 
     /// Em que ponto vai o tracejado de cada aresta neste instante, lido da
@@ -306,5 +372,46 @@ extension StatusItemController {
         var found = view.subviews.flatMap { particleHosts(in: $0) }
         if let host = view as? FlowLayerHost { found.append(host) }
         return found
+    }
+}
+
+/// O registo do `--panel-trace`: uma linha por ação, por verificação e por
+/// mudança do que os passos leem, com os segundos desde o início do registo.
+@MainActor
+final class PanelTrace {
+    private let handle: FileHandle?
+    private let start = Date()
+    private var timer: Timer?
+    private var last = ""
+
+    init(path: String) {
+        FileManager.default.createFile(atPath: path, contents: nil)
+        handle = FileHandle(forWritingAtPath: path)
+    }
+
+    func write(_ line: String) {
+        let text = String(format: "%7.3f  ", Date().timeIntervalSince(start)) + line + "\n"
+        handle?.write(Data(text.utf8))
+    }
+
+    /// Lê o estado de 25 em 25 ms e escreve-o quando muda.
+    func watch(_ controller: StatusItemController) {
+        let timer = Timer(timeInterval: 0.025, repeats: true) { [weak self, weak controller] _ in
+            MainActor.assumeIsolated {
+                guard let self, let controller else { return }
+                let state = controller.traceState
+                if state != self.last {
+                    self.last = state
+                    self.write("vê: " + state)
+                }
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
+    }
+
+    func stopWatching() {
+        timer?.invalidate()
+        timer = nil
     }
 }

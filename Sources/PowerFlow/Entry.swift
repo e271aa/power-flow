@@ -259,6 +259,8 @@ enum Entry {
             delegate.logAlerts = arguments.contains("--log-alerts")
             delegate.panelPNG = arguments.firstIndex(of: "--panel-png").flatMap {
                 $0 + 1 < arguments.count ? arguments[$0 + 1] : nil }
+            delegate.panelTrace = arguments.firstIndex(of: "--panel-trace").flatMap {
+                $0 + 1 < arguments.count ? arguments[$0 + 1] : nil }
             app.delegate = delegate
             app.setActivationPolicy(.accessory)
             app.run()

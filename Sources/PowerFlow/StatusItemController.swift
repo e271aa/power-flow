@@ -21,6 +21,8 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
     private(set) var popover: NSPopover?
     private(set) var monitor: PowerMonitor?
     private var cancellable: AnyCancellable?
+    /// O `kill` (SIGTERM) sai pelo mesmo caminho que o «Sair».
+    private var terminationSignal: TerminationSignal?
     private var shownPluggedIn: Bool?
     /// Onde o painel está. Novo a cada abertura: o painel abre sempre no nível 1.
     private(set) var navigation: PanelNavigation?
@@ -55,10 +57,13 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
     var logAlerts = false
     /// `--panel-check --panel-png <ficheiro>`: desenha o painel aberto num PNG.
     var panelPNG: String?
+    /// `--panel-check --panel-trace <ficheiro>`: o registo do que cada passo viu.
+    var panelTrace: String?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let monitor = PowerMonitor(persistsHistory: true)
         self.monitor = monitor
+        terminationSignal = TerminationSignal { NSApp.terminate(nil) }
 
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.button?.target = self
@@ -137,7 +142,8 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
         }
     }
 
-    /// Ao sair, o intervalo de 10 min que ia a meio fica guardado.
+    /// Ao sair, o intervalo de 10 min que ia a meio fica guardado. Também
+    /// com um SIGTERM, que chega aqui pelo `terminationSignal`.
     func applicationWillTerminate(_ notification: Notification) {
         monitor?.saveHistory()
     }

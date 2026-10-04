@@ -424,13 +424,17 @@ struct FirstRunCard: View {
 
     /// Quantos cartões estão à vista. Serve o `--panel-check`.
     @MainActor static var shownCount = 0
+    /// Se o último «Percebi» fechou o cartão com animação. Serve o `--panel-check`.
+    @MainActor static var lastDismissal: Bool?
 
     /// Fecha o cartão. Com o rato, o cartão sai e a repartição e o histórico
     /// entram em 0,25 s, ao ritmo da altura; pelo Return (D7b) ou com Reduzir
     /// Movimento, de uma vez.
     @MainActor
     static func dismiss(navigation: PanelNavigation, reduceMotion: Bool, _ change: () -> Void) {
-        if PanelNavigation.isKeyboardAction || reduceMotion {
+        let animated = !(PanelNavigation.isKeyboardAction || reduceMotion)
+        lastDismissal = animated
+        if !animated {
             navigation.changeWithoutAnimation()
             var transaction = Transaction()
             transaction.disablesAnimations = true

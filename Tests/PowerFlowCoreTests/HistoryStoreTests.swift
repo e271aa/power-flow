@@ -186,6 +186,31 @@ final class HistoryStoreTests: XCTestCase {
         XCTAssertEqual(reopened.coverage(now: later), 120, accuracy: 1)
     }
 
+    /// Um `kill` (SIGTERM) a meio de um intervalo: o que ia a meio fica no ficheiro.
+    func testUmSigtermGravaOIntervaloEmCurso() throws {
+        let file = temporaryFile()
+        defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+
+        let store = HistoryStore(fileURL: file, now: start)
+        feed(store, to: 75, system: { _ in 13 })
+        let saved = expectation(description: "o sinal chegou ao fecho ordenado")
+        let catcher = TerminationSignal { try? store.save(); saved.fulfill() }
+        defer { withExtendedLifetime(catcher) {} }
+
+        // Se o sinal ainda tiver a ação por omissão, o `kill` mataria o processo dos testes.
+        var current = sigaction()
+        sigaction(SIGTERM, nil, &current)
+        guard unsafeBitCast(current.__sigaction_u.__sa_handler, to: Int.self) == unsafeBitCast(SIG_IGN, to: Int.self) else {
+            return XCTFail("o SIGTERM continua a matar o processo")
+        }
+        kill(getpid(), SIGTERM)
+        wait(for: [saved], timeout: 2)
+
+        let later = start.addingTimeInterval(120)
+        let reopened = HistoryStore(fileURL: file, now: later)
+        XCTAssertEqual(reopened.series(for: .day, now: later).samples.map(\.system), [13])
+    }
+
     func testFicheiroEstragadoOuEmFaltaComecaVazio() throws {
         let file = temporaryFile()
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
