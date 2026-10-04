@@ -49,7 +49,8 @@ extension StatusItemController {
         }
 
         let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        var before: [CGPoint] = []
+            || forceReduceMotion
+        var before: [CGFloat] = []
         var cpuAtStart = 0.0
 
         print("== Verificação do painel (Reduzir Movimento: \(reduceMotion ? "ligado" : "desligado")) ==")
@@ -63,7 +64,7 @@ extension StatusItemController {
         after(opened + 1) {
             wakeups = 0
             cpuAtStart = Self.cpuSeconds()
-            before = self.particlePositions()
+            before = self.particlePhases()
         }
         after(opened + 1 + Self.openWindow) {
             // Um clique no item fecha o painel. Se foi isso que aconteceu,
@@ -74,7 +75,7 @@ extension StatusItemController {
             }
             let cpu = (Self.cpuSeconds() - cpuAtStart) / Self.openWindow * 100
             let budget = reduceMotion ? Self.reducedMotionBudget : Self.openBudget
-            let positions = self.particlePositions()
+            let phases = self.particlePhases()
 
             check(cpu <= budget,
                   String(format: "aberto: %.1f %% de CPU (máximo %.0f %%), %.0f despertares/s",
@@ -82,14 +83,12 @@ extension StatusItemController {
             check(self.monitor?.isSamplingFast == true, "aberto: leituras a 10 Hz ligadas")
 
             if reduceMotion {
-                check(positions.isEmpty,
-                      "Reduzir Movimento: sem partículas (\(positions.count))")
+                check(phases.isEmpty,
+                      "Reduzir Movimento: sem partículas (\(phases.count) arestas com elas)")
             } else {
-                let moved = zip(before, positions).filter { $0 != $1 }.count
-                check(!positions.isEmpty && moved == positions.count,
-                      "partículas a mover-se: \(moved) de \(positions.count)")
-                check(Set(positions.map { "\(Int($0.x)),\(Int($0.y))" }).count > 1,
-                      "partículas repartidas pelo caminho")
+                let moved = zip(before, phases).filter { $0 != $1 }.count
+                check(!phases.isEmpty && moved == phases.count,
+                      "partículas a mover-se: em \(moved) de \(phases.count) arestas")
             }
 
             self.closePanel()
@@ -115,13 +114,11 @@ extension StatusItemController {
         }
     }
 
-    /// Onde está cada partícula neste instante, lido da camada que o Core
-    /// Animation está a apresentar.
-    private func particlePositions() -> [CGPoint] {
+    /// Em que ponto vai o tracejado de cada aresta neste instante, lido da
+    /// camada que o Core Animation está a apresentar.
+    private func particlePhases() -> [CGFloat] {
         guard let root = popover?.contentViewController?.view else { return [] }
-        return Self.particleHosts(in: root)
-            .flatMap(\.particleLayers)
-            .compactMap { $0.presentation()?.position }
+        return Self.particleHosts(in: root).flatMap(\.particlePhases)
     }
 
     private static func particleHosts(in view: NSView) -> [ParticleHostView] {

@@ -120,6 +120,10 @@ enum PFColor {
 
     typealias RGBA = (Double, Double, Double, Double)
 
+    /// Usa os valores de alto contraste seja qual for a definição do sistema.
+    /// Serve o `--snapshot --appearance hc-light` e `hc-dark`.
+    static var forcesIncreasedContrast = false
+
     private static func dynamic(_ name: String, light: RGBA, dark: RGBA,
                                 hcLight: RGBA, hcDark: RGBA) -> Color {
         let ns = NSColor(name: NSColor.Name(name)) { appearance in
@@ -127,12 +131,22 @@ enum PFColor {
                 .aqua, .darkAqua,
                 .accessibilityHighContrastAqua, .accessibilityHighContrastDarkAqua,
             ])
+            let isDark = match == .darkAqua || match == .accessibilityHighContrastDarkAqua
+            // O SwiftUI resolve as cores com a aparência clara ou escura e não
+            // passa a variante de alto contraste (medido na Fase 4: com a
+            // aparência de alto contraste na vista, vinham os valores normais).
+            // Por isso pergunta-se também ao sistema.
+            let isHighContrast = match == .accessibilityHighContrastAqua
+                || match == .accessibilityHighContrastDarkAqua
+                || forcesIncreasedContrast
+                || NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+
             let c: RGBA
-            switch match {
-            case .darkAqua: c = dark
-            case .accessibilityHighContrastAqua: c = hcLight
-            case .accessibilityHighContrastDarkAqua: c = hcDark
-            default: c = light
+            switch (isDark, isHighContrast) {
+            case (false, false): c = light
+            case (true, false):  c = dark
+            case (false, true):  c = hcLight
+            case (true, true):   c = hcDark
             }
             return NSColor(displayP3Red: c.0, green: c.1, blue: c.2, alpha: c.3)
         }

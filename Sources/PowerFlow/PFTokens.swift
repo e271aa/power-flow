@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 // Tokens do handoff («Design tokens»: tipografia, espaçamento, raios).
@@ -26,6 +27,42 @@ enum PFFont {
         static let body: CGFloat = 18
         static let secondary: CGFloat = 16
         static let minimum: CGFloat = 14
+    }
+}
+
+/// Um papel de tipografia com a altura de linha do handoff.
+///
+/// O SwiftUI não tem altura de linha: tem espaço entre linhas. A diferença
+/// para a altura natural da fonte reparte-se por cima e por baixo, e entre
+/// linhas quando o texto quebra.
+struct PFType {
+    let size: CGFloat
+    let weight: Font.Weight
+    let lineHeight: CGFloat
+
+    static let display = PFType(size: 28, weight: .semibold, lineHeight: PFFont.LineHeight.display)
+    static let value = PFType(size: 15, weight: .semibold, lineHeight: PFFont.LineHeight.value)
+    static let title = PFType(size: 13, weight: .semibold, lineHeight: PFFont.LineHeight.title)
+    static let body = PFType(size: 13, weight: .regular, lineHeight: PFFont.LineHeight.body)
+    static let secondary = PFType(size: 12, weight: .regular, lineHeight: PFFont.LineHeight.secondary)
+    static let minimum = PFType(size: 11, weight: .regular, lineHeight: PFFont.LineHeight.minimum)
+    /// Uma palavra no lugar de um valor («Em pausa», «Desligado»), na linha de um valor.
+    static let valueWord = PFType(size: 13, weight: .medium, lineHeight: PFFont.LineHeight.value)
+
+    var font: Font { .system(size: size, weight: weight) }
+
+    /// O que falta à altura natural da fonte para chegar à altura de linha.
+    var extraLeading: CGFloat {
+        lineHeight - NSLayoutManager().defaultLineHeight(for: .systemFont(ofSize: size))
+    }
+}
+
+extension View {
+    func pfType(_ type: PFType) -> some View {
+        let extra = type.extraLeading
+        return font(type.font)
+            .lineSpacing(max(extra, 0))
+            .padding(.vertical, extra / 2)
     }
 }
 

@@ -91,6 +91,7 @@ final class PowerMonitor: ObservableObject {
         fresh.apply(smoother.average)
         fresh.isAligned = smoother.isAligned
         fresh.isSettled = smoother.isSettled
+        fresh.settleRemaining = smoother.settleRemaining
         fresh.batteryMagnitude = abs(fresh.battery.voltage * fresh.battery.amperage)
 
         snapshot = fresh

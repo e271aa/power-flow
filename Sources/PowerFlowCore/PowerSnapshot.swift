@@ -31,6 +31,9 @@ public struct PowerSnapshot: Sendable {
     /// não é de confiança.
     public var isSettled: Bool = true
 
+    /// Segundos que faltam para `isSettled`. Zero depois de estabilizar.
+    public var settleRemaining: Double = 0
+
     public init() {}
 
     /// Um Mac sem bateria está sempre ligado à corrente. Sem esta guarda, a

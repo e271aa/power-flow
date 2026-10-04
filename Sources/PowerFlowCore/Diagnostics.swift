@@ -7,9 +7,16 @@ import Foundation
 /// diagrama aparece incompleto.
 public enum Diagnostics {
     public static func dump() {
+        print(report())
+    }
+
+    /// O mesmo texto do `--dump`, para copiar para um relatório de problema.
+    public static func report() -> String {
+        var lines: [String] = []
+        func print(_ line: String) { lines.append(line) }
+
         guard SMCCatalog.shared.prepare() else {
-            print("Não foi possível abrir o AppleSMC.")
-            return
+            return "Não foi possível abrir o AppleSMC."
         }
 
         let snapshot = PowerSampler.sample()
@@ -51,6 +58,7 @@ public enum Diagnostics {
         if let why = battery.chargingExplanation {
             print("  não carrega porquê   \(why)")
         }
+        return lines.joined(separator: "\n")
     }
 
     /// Todas as chaves de potência em bruto, para investigação.

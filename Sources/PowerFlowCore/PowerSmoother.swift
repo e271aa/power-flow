@@ -38,6 +38,9 @@ public struct PowerSmoother {
     /// não estão alinhadas e a diferença entre elas não significa nada.
     public var isAligned: Bool { samples.count >= capacity }
 
+    /// Amostras que faltam para `isAligned`.
+    public var samplesUntilAligned: Int { max(0, capacity - samples.count) }
+
     @discardableResult
     public mutating func add(_ reading: RailReading) -> RailReading {
         samples.append(reading)

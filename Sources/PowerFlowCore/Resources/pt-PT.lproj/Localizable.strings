@@ -8,13 +8,13 @@
 "src_battery" = "Da bateria";
 "src_mains" = "Da corrente";
 /* args: t */
-"st_charging" = "a carregar, 100 % em %@";
+"st_charging" = "a carregar, 100 %% em %@";
 /* args: p */
 "st_paused" = "carga em pausa aos %@";
 /* args: t */
 "st_left" = "%@ restantes";
 /* args: n */
-"st_settling" = "valores estáveis dentro de %@ s";
+"st_settling" = "valores estáveis dentro de %@ s";
 "more_vo" = "Mais opções";
 
 /* ── Painel — avisos ── */
@@ -178,13 +178,8 @@
 "n_weak_b" = "O adaptador de %1$@ não chega para carregar enquanto o Mac gasta %2$@.";
 "n_now" = "agora";
 
-/* ── Provisórios da v1 (saem nas Fases 4 e 5, quando as vistas forem refeitas) ── */
-"v1_charge" = "Carga";
+/* ── Provisórios da v1 (saem nas Fases 5 e 6, quando as vistas forem refeitas) ── */
 /* args: n */
 "v1_last" = "Últimos %@ s";
-"v1_source_battery" = "A funcionar com bateria";
-"v1_source_mains" = "Ligado à corrente";
-"v1_charging" = "a carregar";
-"v1_supplying" = "a descarregar";
 /* args: w */
 "tt_status" = "PowerFlow — %@ consumidos";

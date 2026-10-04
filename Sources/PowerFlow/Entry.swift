@@ -33,8 +33,31 @@ enum Entry {
         }
         if let index = arguments.firstIndex(of: "--snapshot") {
             let path = index + 1 < arguments.count ? arguments[index + 1] : "powerflow.png"
-            let warmUp = index + 2 < arguments.count ? Double(arguments[index + 2]) ?? 6 : 6
-            MainActor.assumeIsolated { Snapshotter.render(to: path, warmUpSeconds: warmUp) }
+            func value(after flag: String) -> String? {
+                guard let at = arguments.firstIndex(of: flag), at + 1 < arguments.count else { return nil }
+                return arguments[at + 1]
+            }
+
+            var options = Snapshotter.Options()
+            options.warmUpSeconds = index + 2 < arguments.count ? Double(arguments[index + 2]) ?? 6 : 6
+            options.reduceMotion = arguments.contains("--reduce-motion")
+            if let name = value(after: "--state") {
+                guard let state = PanelFixture(rawValue: name) else {
+                    print("Estado desconhecido: \(name). Estados: "
+                        + PanelFixture.allCases.map(\.rawValue).joined(separator: ", "))
+                    exit(2)
+                }
+                options.state = state
+            }
+            if let name = value(after: "--appearance") {
+                guard let appearance = Snapshotter.appearances[name] else {
+                    print("Aparência desconhecida: \(name). Aparências: "
+                        + Snapshotter.appearances.keys.sorted().joined(separator: ", "))
+                    exit(2)
+                }
+                options.appearance = appearance
+            }
+            MainActor.assumeIsolated { Snapshotter.render(to: path, options: options) }
             exit(0)
         }
 
@@ -103,6 +126,7 @@ enum Entry {
             delegate.diagnoseAndExit = isDiagnose
             delegate.checkPanelAndExit = isPanelCheck
             delegate.openPanelAfter = openPanelAfter
+            delegate.forceReduceMotion = arguments.contains("--reduce-motion")
             app.delegate = delegate
             app.setActivationPolicy(.accessory)
             app.run()

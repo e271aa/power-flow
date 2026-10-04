@@ -30,8 +30,8 @@ struct HistoryChart: View {
                         )
                         .foregroundStyle(
                             .linearGradient(
-                                colors: [FlowNode.system.tint.opacity(0.45),
-                                         FlowNode.system.tint.opacity(0.02)],
+                                colors: [PFColor.blue.opacity(0.45),
+                                         PFColor.blue.opacity(0.02)],
                                 startPoint: .top, endPoint: .bottom)
                         )
                         .interpolationMethod(.monotone)
@@ -40,7 +40,7 @@ struct HistoryChart: View {
                             x: .value("t", index),
                             y: .value("W", sample.systemTotal)
                         )
-                        .foregroundStyle(FlowNode.system.tint)
+                        .foregroundStyle(PFColor.blue)
                         .lineStyle(StrokeStyle(lineWidth: 1.5))
                         .interpolationMethod(.monotone)
                     }

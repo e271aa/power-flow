@@ -72,6 +72,18 @@ public struct DualRateSmoother {
         usesFast || slow.isAligned
     }
 
+    /// Segundos até haver números, pelo ritmo que lá chegar primeiro: a média
+    /// lenta recebe uma leitura por segundo e a rápida dez.
+    public var settleRemaining: Double {
+        guard !isSettled else { return 0 }
+        let slowSeconds = Double(slow.samplesUntilAligned)
+        guard isFast else { return slowSeconds }
+        return min(slowSeconds, Double(fast.samplesUntilAligned) / 10)
+    }
+
+    /// Quanto falta para estabilizar logo depois da primeira leitura, ao ritmo lento.
+    public static let settleDuration: Double = 3
+
     /// A entrada e o consumo estão alinhados no tempo, e a diferença entre
     /// eles pode ler-se como assistência da bateria.
     public var isAligned: Bool {

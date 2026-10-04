@@ -8,190 +8,288 @@ private struct StaticRenderKey: EnvironmentKey {
     static let defaultValue = false
 }
 
+/// Liga Reduzir Movimento sem mexer na definição do sistema (`--reduce-motion`).
+private struct ForceReduceMotionKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
 extension EnvironmentValues {
     var isStaticRender: Bool {
         get { self[StaticRenderKey.self] }
         set { self[StaticRenderKey.self] = newValue }
     }
+
+    var forceReduceMotion: Bool {
+        get { self[ForceReduceMotionKey.self] }
+        set { self[ForceReduceMotionKey.self] = newValue }
+    }
 }
 
-/// O diagrama de fluxo: três nós e as correntes de energia entre eles.
+extension FlowNodeKind {
+    /// Traço e preenchimento. Nunca é texto.
+    var color: Color {
+        switch self {
+        case .adapter: return PFColor.green
+        case .system:  return PFColor.blue
+        case .battery: return PFColor.amber
+        }
+    }
+
+    var ink: Color {
+        switch self {
+        case .adapter: return PFColor.greenInk
+        case .system:  return PFColor.blueInk
+        case .battery: return PFColor.amberInk
+        }
+    }
+
+    var soft: Color {
+        switch self {
+        case .adapter: return PFColor.greenSoft
+        case .system:  return PFColor.blueSoft
+        case .battery: return PFColor.amberSoft
+        }
+    }
+}
+
+/// Uma aresta com o caudal que a atravessa neste instante.
+private struct FlowStream: Identifiable {
+    let edge: FlowEdgeKind
+    let curve: CubicCurve
+    let flow: EdgeFlow
+
+    var id: FlowEdgeKind { edge }
+
+    var path: Path {
+        var path = Path()
+        path.move(to: curve.p0)
+        path.addCurve(to: curve.p3, control1: curve.p1, control2: curve.p2)
+        return path
+    }
+
+    /// De uma cor de nó para a outra, de porta a porta.
+    var shading: GraphicsContext.Shading {
+        .linearGradient(Gradient(colors: [edge.from.color, edge.to.color]),
+                        startPoint: curve.p0, endPoint: curve.p3)
+    }
+
+    /// As partículas levam as cores de tinta: com as do tubo e do núcleo
+    /// confundiam-se com o núcleo por onde passam.
+    var particleShading: GraphicsContext.Shading {
+        .linearGradient(Gradient(colors: [edge.from.ink, edge.to.ink]),
+                        startPoint: curve.p0, endPoint: curve.p3)
+    }
+}
+
+/// O diagrama de fluxo: os nós em cartão e a energia que passa entre eles.
+///
+/// O sentido lê-se parado: cada aresta com caudal tem um chevron fixo a meio
+/// e a espessura do caudal. As partículas só acrescentam movimento.
 struct FlowDiagram: View {
     let snapshot: PowerSnapshot
     let panel: PanelState
+    let copy: PanelCopy
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    @Environment(\.forceReduceMotion) private var forceReduceMotion
     @Environment(\.isStaticRender) private var isStaticRender
 
-    /// Altura do diagrama completo. A geometria calcula-se sempre para ela.
-    private static let height: CGFloat = 235
-    /// Sem bateria fica só a fila de cima, com os nós onde sempre estiveram.
-    private static let heightWithoutBattery: CGFloat = 116
+    private var reduceMotion: Bool { systemReduceMotion || forceReduceMotion }
 
     var body: some View {
-        GeometryReader { proxy in
-            let geometry = FlowGeometry(size: CGSize(width: proxy.size.width,
-                                                     height: Self.height))
-            let streams = streams(in: geometry)
+        let streams = FlowLayout.edges(hasBattery: panel.showsBattery).map { edge in
+            FlowStream(edge: edge, curve: FlowLayout.curve(edge),
+                       flow: EdgeFlow(watts: snapshot.watts(on: edge),
+                                      isSuppressed: panel.kind == .settling,
+                                      reduceMotion: reduceMotion))
+        }
 
-            ZStack {
-                // Os trilhos só mudam quando chega uma leitura, por isso
-                // desenham-se uma vez por leitura e não por fotograma.
-                Canvas { context, _ in
-                    for stream in streams {
-                        drawTrack(stream, in: &context)
-                        if isStaticRender { drawFrozenParticles(stream, in: &context) }
-                    }
+        ZStack(alignment: .topLeading) {
+            // As arestas só mudam quando chega uma leitura, por isso
+            // desenham-se uma vez por leitura e não por fotograma.
+            Canvas { context, _ in
+                for stream in streams {
+                    drawEdge(stream, in: &context)
+                    if isStaticRender { drawFrozenParticles(stream, in: &context) }
                 }
-                if !isStaticRender {
-                    ParticleLayer(streams: streams)
+            }
+            .accessibilityHidden(true)
+
+            if !isStaticRender {
+                ParticleLayer(streams: streams.filter(\.flow.hasParticles).map {
+                    ParticleStream(edge: $0.edge, diameter: $0.flow.particleDiameter,
+                                   speed: $0.flow.particleSpeed)
+                })
+                .accessibilityHidden(true)
+            }
+
+            ForEach(FlowLayout.nodes(hasBattery: panel.showsBattery), id: \.self) { node in
+                let frame = FlowLayout.frame(of: node)
+                card(for: node)
+                    .frame(width: frame.width, height: frame.height)
+                    .offset(x: frame.minX, y: frame.minY)
+            }
+
+            // Os chevrons e as portas ficam por cima de tudo: as portas tapam
+            // o sítio onde a aresta toca no nó.
+            Canvas { context, _ in
+                for stream in streams {
+                    if stream.flow.isActive { drawChevron(stream, in: &context) }
+                    drawPorts(stream, in: &context)
                 }
-                nodes(in: geometry)
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+
+            ForEach(streams) { stream in
+                if let label = copy.voFlows[stream.edge] {
+                    let middle = stream.curve.point(at: 0.5)
+                    Color.clear
+                        .frame(width: 24, height: 24)
+                        .offset(x: middle.x - 12, y: middle.y - 12)
+                        .accessibilityElement()
+                        .accessibilityLabel(label)
+                }
             }
         }
-        .frame(height: panel.showsBattery ? Self.height : Self.heightWithoutBattery)
-    }
-
-    // MARK: - Correntes
-
-    private func streams(in geometry: FlowGeometry) -> [FlowStream] {
-        var flows: [(FlowNode, FlowNode, Double)] = [
-            (.adapter, .system, snapshot.adapterToSystem),
-        ]
-        if panel.showsBattery {
-            flows.append((.adapter, .battery, snapshot.adapterToBattery))
-            flows.append((.battery, .system, snapshot.batteryToSystem))
-        }
-        return flows.map { from, to, watts in
-            FlowStream(edge: geometry.edge(from: from, to: to),
-                       flow: EdgeFlow(watts: watts, reduceMotion: reduceMotion))
-        }
-    }
-
-    // MARK: - Desenho
-
-    private func drawTrack(_ stream: FlowStream, in context: inout GraphicsContext) {
-        // Trilho: sempre visível, para a estrutura do diagrama se ler
-        // mesmo quando não passa energia por ali.
-        context.stroke(
-            stream.edge.path,
-            with: .color(stream.tint.opacity(stream.flow.isActive ? 0.22 : 0.10)),
-            style: StrokeStyle(lineWidth: stream.flow.lineWidth, lineCap: .round)
-        )
-    }
-
-    /// As partículas num instante fixo, repartidas pelo caminho.
-    private func drawFrozenParticles(_ stream: FlowStream, in context: inout GraphicsContext) {
-        let count = stream.flow.particleCount
-        let radius = CGFloat(stream.flow.particleRadius)
-
-        for index in 0..<count {
-            let t = Double(index) / Double(count)
-            let point = stream.edge.point(at: CGFloat(t))
-            let opacity = min(1, max(0, min(t, 1 - t) / 0.12))
-
-            let rect = CGRect(x: point.x - radius, y: point.y - radius,
-                              width: radius * 2, height: radius * 2)
-            context.fill(Path(ellipseIn: rect),
-                         with: .color(stream.tint.opacity(0.95 * opacity)))
-        }
+        .frame(width: FlowLayout.width, height: FlowLayout.height(hasBattery: panel.showsBattery),
+               alignment: .topLeading)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(copy.voDiagram)
     }
 
     // MARK: - Nós
 
     @ViewBuilder
-    private func nodes(in geometry: FlowGeometry) -> some View {
-        let visible: [FlowNode] = panel.showsBattery
-            ? [.adapter, .battery, .system] : [.adapter, .system]
-        ForEach(visible, id: \.self) { node in
-            NodeBadge(node: node,
-                      radius: geometry.nodeRadius,
-                      watts: watts(for: node),
-                      caption: caption(for: node),
-                      isDimmed: isDimmed(node))
-                .position(geometry.center(of: node))
-        }
-    }
-
-    private func watts(for node: FlowNode) -> Double {
-        switch node {
-        // O que sai do nó, não a leitura em bruto: assim o número do
-        // adaptador é sempre a soma das setas que dele partem, e o diagrama
-        // não mostra energia a desaparecer pelo caminho.
-        case .adapter: return snapshot.adapterToSystem + snapshot.adapterToBattery
-        case .battery: return snapshot.adapterToBattery + snapshot.batteryToSystem
-        case .system:  return snapshot.systemTotal ?? 0
-        }
-    }
-
-    private func caption(for node: FlowNode) -> String? {
+    private func card(for node: FlowNodeKind) -> some View {
         switch node {
         case .adapter:
-            // A potência máxima do adaptador já aparece no rodapé; repeti-la
-            // aqui punha texto por cima da aresta que desce para a bateria.
-            return panel.origin == .battery ? L10n.string("n_unplugged") : nil
-        case .battery:
-            switch panel.batteryActivity {
-            case .charging:  return L10n.string("v1_charging")
-            case .supplying: return L10n.string("v1_supplying")
-            case .idle:      return PFFormat().percent(snapshot.battery.percentage)
-            }
+            NodeCard(node: node, symbol: "powerplug.fill", label: L10n.string("n_adapter"),
+                     value: copy.adapter, isDimmed: copy.isDimmed,
+                     isUnplugged: panel.origin == .battery)
+                .accessibilityLabel(copy.voAdapter)
         case .system:
-            return nil
+            NodeCard(node: node, symbol: "cpu.fill", label: L10n.string("n_system"),
+                     value: copy.system, isDimmed: copy.isDimmed, isUnplugged: false)
+                .accessibilityLabel(copy.voSystem)
+        case .battery:
+            NodeCard(node: node, symbol: batterySymbol, label: copy.batteryLabel,
+                     value: copy.battery, isDimmed: copy.isDimmed, isUnplugged: false)
+                .accessibilityLabel(copy.voBattery ?? "")
         }
     }
 
-    private func isDimmed(_ node: FlowNode) -> Bool {
-        node == .adapter && panel.origin == .battery
+    private var batterySymbol: String {
+        switch snapshot.battery.percentage {
+        case ..<13:  return "battery.0"
+        case ..<38:  return "battery.25"
+        case ..<63:  return "battery.50"
+        case ..<88:  return "battery.75"
+        default:     return "battery.100"
+        }
+    }
+
+    // MARK: - Desenho
+
+    private func drawEdge(_ stream: FlowStream, in context: inout GraphicsContext) {
+        guard stream.flow.isActive else {
+            // Sem caudal fica o trilho, para a estrutura do diagrama se ler.
+            context.stroke(stream.path, with: .color(PFColor.track),
+                           style: StrokeStyle(lineWidth: EdgeFlow.trackWidth, lineCap: .round,
+                                              dash: [3, 4]))
+            return
+        }
+
+        var tube = context
+        tube.opacity = 0.28
+        tube.stroke(stream.path, with: stream.shading,
+                    style: StrokeStyle(lineWidth: stream.flow.tubeWidth, lineCap: .butt))
+        context.stroke(stream.path, with: stream.shading,
+                       style: StrokeStyle(lineWidth: stream.flow.coreWidth, lineCap: .round))
+    }
+
+    /// As partículas num instante fixo: um ponto de 14 em 14 pt.
+    private func drawFrozenParticles(_ stream: FlowStream, in context: inout GraphicsContext) {
+        guard stream.flow.hasParticles else { return }
+        context.stroke(stream.path, with: stream.particleShading,
+                       style: StrokeStyle(lineWidth: stream.flow.particleDiameter, lineCap: .round,
+                                          dash: [0, EdgeFlow.particleSpacing]))
+    }
+
+    private func drawChevron(_ stream: FlowStream, in context: inout GraphicsContext) {
+        let chevron = FlowLayout.chevron(on: stream.curve, size: stream.flow.chevronSize)
+        var path = Path()
+        path.move(to: chevron.start)
+        path.addLine(to: chevron.tip)
+        path.addLine(to: chevron.end)
+
+        // O halo separa o chevron do tubo que lhe passa por baixo.
+        context.stroke(path, with: .color(PFColor.bg),
+                       style: StrokeStyle(lineWidth: 5.5, lineCap: .round, lineJoin: .round))
+        context.stroke(path, with: .color(stream.edge.from.ink),
+                       style: StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round))
+    }
+
+    private func drawPorts(_ stream: FlowStream, in context: inout GraphicsContext) {
+        let radius = FlowLayout.portRadius
+        for (point, node) in [(stream.curve.p0, stream.edge.from), (stream.curve.p3, stream.edge.to)] {
+            let port = Path(ellipseIn: CGRect(x: point.x - radius, y: point.y - radius,
+                                              width: radius * 2, height: radius * 2))
+            context.fill(port, with: .color(PFColor.bg))
+            context.stroke(port, with: .color(stream.flow.isActive ? node.color : PFColor.track),
+                           lineWidth: 1.6)
+        }
     }
 }
 
-/// O círculo de um nó, com símbolo, potência e legenda.
-///
-/// A potência vai dentro do círculo de propósito: com ela por baixo, as
-/// três linhas de texto cresciam para cima das arestas e o diagrama ficava
-/// ilegível nas larguras de uma janela de barra de menus.
-private struct NodeBadge: View {
-    let node: FlowNode
-    let radius: CGFloat
-    let watts: Double
-    let caption: String?
+/// O cartão de um nó: mosaico com o símbolo, rótulo e valor.
+private struct NodeCard: View {
+    let node: FlowNodeKind
+    let symbol: String
+    let label: String
+    let value: PanelCopy.NodeValue
     let isDimmed: Bool
+    let isUnplugged: Bool
 
     var body: some View {
-        VStack(spacing: 3) {
-            ZStack {
-                Circle()
-                    .fill(node.tint.opacity(isDimmed ? 0.06 : 0.15))
-                Circle()
-                    .strokeBorder(node.tint.opacity(isDimmed ? 0.25 : 0.55), lineWidth: 1.5)
+        let shape = RoundedRectangle(cornerRadius: PFRadius.card, style: .continuous)
 
-                VStack(spacing: 1) {
-                    Image(systemName: node.symbol)
-                        .font(.system(size: radius * 0.42, weight: .medium))
-                        .foregroundStyle(node.tint.opacity(isDimmed ? 0.4 : 0.95))
-                    Text(isDimmed ? "—" : PFFormat().wattsValue(watts))
-                        .font(.system(size: radius * 0.44, weight: .semibold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(isDimmed ? .secondary : .primary)
-                    Text("W")
-                        .font(.system(size: radius * 0.26, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .opacity(isDimmed ? 0 : 1)
+        HStack(spacing: PFSpace.s) {
+            RoundedRectangle(cornerRadius: PFRadius.tile, style: .continuous)
+                .fill(node.soft)
+                .frame(width: 24, height: 24)
+                .overlay {
+                    Image(systemName: symbol)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(node.ink)
                 }
-            }
-            .frame(width: radius * 2, height: radius * 2)
 
-            Text(node.title)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.secondary)
-
-            if let caption {
-                Text(caption)
-                    .font(.system(size: 9))
-                    .foregroundStyle(.tertiary)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(label)
+                    .pfType(.minimum)
+                    .foregroundStyle(PFColor.fg2)
+                Text(value.text)
+                    .pfType(value.isWord ? .valueWord : .value)
+                    .monospacedDigit()
+                    .foregroundStyle(value.isWord || isDimmed ? PFColor.fg2 : PFColor.fg)
             }
+            .lineLimit(1)
+            .minimumScaleFactor(0.85)
+
+            Spacer(minLength: 0)
         }
-        .frame(width: radius * 2.7)
+        .padding(.leading, 9)
+        .padding(.trailing, 8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background {
+            shape.fill(PFColor.node)
+                .shadow(color: .black.opacity(0.06), radius: 1.5, y: 1)
+        }
+        .overlay {
+            shape.strokeBorder(PFColor.nodeBorder,
+                               style: StrokeStyle(lineWidth: 1, dash: isUnplugged ? [3, 3] : []))
+        }
+        .opacity(isUnplugged ? 0.6 : 1)
+        .accessibilityElement(children: .ignore)
     }
 }

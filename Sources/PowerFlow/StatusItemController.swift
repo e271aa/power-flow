@@ -31,6 +31,9 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
     /// Quando ligado, abre e fecha o painel, verifica o que fica a correr
     /// em cada estado e sai. Serve o `--panel-check`.
     var checkPanelAndExit = false
+    /// Trata o painel como se Reduzir Movimento estivesse ligado, sem mexer
+    /// na definição do sistema. Serve o `--reduce-motion`, para medir.
+    var forceReduceMotion = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let monitor = PowerMonitor()
@@ -142,7 +145,8 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
         guard !popover.isShown else { return }
 
         monitor.setFastSampling(true)
-        let hosting = NSHostingController(rootView: ContentView(monitor: monitor))
+        let hosting = NSHostingController(rootView: PanelView(monitor: monitor)
+            .environment(\.forceReduceMotion, forceReduceMotion))
         hosting.sizingOptions = .preferredContentSize
         popover.contentViewController = hosting
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)

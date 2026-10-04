@@ -76,33 +76,50 @@ final class ModelFixTests: XCTestCase {
         let moving = EdgeFlow(watts: 30, reduceMotion: false)
         let still = EdgeFlow(watts: 30, reduceMotion: true)
 
-        XCTAssertGreaterThan(moving.particleCount, 0)
-        XCTAssertEqual(still.particleCount, 0)
+        XCTAssertTrue(moving.hasParticles)
+        XCTAssertFalse(still.hasParticles)
         XCTAssertTrue(still.isActive)
-        XCTAssertEqual(still.lineWidth, moving.lineWidth)
+        XCTAssertEqual(still.tubeWidth, moving.tubeWidth)
+        XCTAssertEqual(still.chevronSize, moving.chevronSize)
     }
 
-    /// As partículas mudaram de técnica, não de aspeto: os números são os
-    /// do desenho antigo.
-    func testAsArestasTemOAspetoDeAntes() {
-        let full = EdgeFlow(watts: 60, reduceMotion: false)
-        XCTAssertEqual(full.lineWidth, 6, accuracy: 0.001)
-        XCTAssertEqual(full.particleCount, 12)
-        XCTAssertEqual(full.particleSpeed, 0.55, accuracy: 0.001)
-        XCTAssertEqual(full.particleRadius, 4.0, accuracy: 0.001)
+    /// As fórmulas do handoff: k = √(min(W, 70) / 70) e sw = 2,5 + 9·k.
+    func testAsArestasSeguemAsFormulasDoHandoff() {
+        let full = EdgeFlow(watts: 70, reduceMotion: false)
+        XCTAssertEqual(full.tubeWidth, 11.5, accuracy: 0.001)
+        XCTAssertEqual(full.coreWidth, 2.98, accuracy: 0.001)
+        XCTAssertEqual(full.chevronSize, 7.05, accuracy: 0.001)
+        XCTAssertEqual(full.particleDiameter, 8.05, accuracy: 0.001)
+        XCTAssertEqual(full.particleSpeed, 60, accuracy: 0.001)
 
-        let quarter = EdgeFlow(watts: 15, reduceMotion: false)
-        XCTAssertEqual(quarter.lineWidth, 4, accuracy: 0.001)
-        XCTAssertEqual(quarter.particleCount, 7)
-        XCTAssertEqual(quarter.particleSpeed, 0.325, accuracy: 0.001)
-        XCTAssertEqual(quarter.particleRadius, 2.9, accuracy: 0.001)
+        // Acima de 70 W a espessura já não cresce.
+        XCTAssertEqual(EdgeFlow(watts: 140, reduceMotion: false).tubeWidth, 11.5, accuracy: 0.001)
+
+        let quarter = EdgeFlow(watts: 17.5, reduceMotion: false)
+        XCTAssertEqual(quarter.tubeWidth, 7, accuracy: 0.001)
+        XCTAssertEqual(quarter.particleSpeed, 37, accuracy: 0.001)
+
+        // As partículas nunca ficam abaixo de 4 pt: com menos não se viam.
+        XCTAssertEqual(EdgeFlow(watts: 1, reduceMotion: false).particleDiameter, 4, accuracy: 0.001)
+        // E ficam sempre dentro do tubo e mais largas do que o núcleo.
+        for watts in [0.5, 5, 12, 36, 70] {
+            let flow = EdgeFlow(watts: watts, reduceMotion: false)
+            XCTAssertGreaterThan(flow.particleDiameter, flow.coreWidth + 1.5, "\(watts) W")
+            XCTAssertLessThanOrEqual(flow.particleDiameter, max(flow.tubeWidth, 4), "\(watts) W")
+        }
     }
 
     func testArestaSemCaudalFicaApagada() {
         let idle = EdgeFlow(watts: 0.1, reduceMotion: false)
         XCTAssertFalse(idle.isActive)
-        XCTAssertEqual(idle.lineWidth, 2)
-        XCTAssertEqual(idle.particleCount, 0)
+        XCTAssertFalse(idle.hasParticles)
+    }
+
+    /// A estabilizar nenhum caudal é de confiança: as arestas ficam em trilho.
+    func testAEstabilizarNenhumaArestaAcende() {
+        let flow = EdgeFlow(watts: 30, isSuppressed: true, reduceMotion: false)
+        XCTAssertFalse(flow.isActive)
+        XCTAssertFalse(flow.hasParticles)
     }
 
     // MARK: - Os dois ritmos de amostragem
