@@ -338,48 +338,47 @@ struct HistoryChart: View {
 
     // MARK: - Séries
 
+    /// As séries são formas, não um `Canvas`. Com o gráfico de 2 min cheio o
+    /// `Canvas` redesenhava-se a cada segundo numa superfície própria do
+    /// RenderBox, e cada superfície devolvida deixava um temporizador de
+    /// limpeza que não parava com o painel aberto: mais um por segundo e
+    /// cerca de 0,1 pontos de CPU por hora (Fase 16). Confere-se com
+    /// `--window --growth-probe`.
     private var marks: some View {
-        Canvas { context, size in
-            func point(_ slot: Int, _ watts: Double) -> CGPoint {
-                CGPoint(x: size.width * CGFloat(slot) / CGFloat(max(series.period.slots - 1, 1)),
-                        y: size.height * (1 - CGFloat(min(watts / series.yMax, 1))))
-            }
-            func line(_ points: [CGPoint]) -> Path {
-                var path = Path()
-                path.addLines(points)
-                return path
-            }
-            func area(_ top: [CGPoint], _ bottom: [CGPoint]) -> Path {
-                var path = Path()
-                path.addLines(top + bottom.reversed())
-                path.closeSubpath()
-                return path
-            }
-
-            let bySegment = Dictionary(grouping: series.samples, by: \.segment)
-            let withAdapter = Dictionary(grouping: series.samples.filter { $0.adapter != nil },
-                                         by: \.adapterSegment)
-
-            // A bateria é o que fica entre as duas linhas: por cima do
-            // sistema é carga, por baixo é a bateria a ajudar.
-            for run in withAdapter.values {
-                context.fill(area(run.map { point($0.slot, $0.adapter ?? 0) },
-                                  run.map { point($0.slot, $0.system) }),
-                             with: .color(PFColor.amberSoft))
-            }
-            for run in bySegment.values {
-                context.fill(area(run.map { point($0.slot, $0.system) }, run.map { point($0.slot, 0) }),
-                             with: .color(PFColor.blueSoft.opacity(series.hasAdapter ? 0.55 : 1)))
-            }
-            for run in bySegment.values {
-                context.stroke(line(run.map { point($0.slot, $0.system) }),
-                               with: .color(PFColor.blue), style: Self.line)
-            }
-            for run in withAdapter.values {
-                context.stroke(line(run.map { point($0.slot, $0.adapter ?? 0) }),
-                               with: .color(PFColor.green), style: Self.line)
-            }
+        let size = Self.plot.size
+        func point(_ slot: Int, _ watts: Double) -> CGPoint {
+            CGPoint(x: size.width * CGFloat(slot) / CGFloat(max(series.period.slots - 1, 1)),
+                    y: size.height * (1 - CGFloat(min(watts / series.yMax, 1))))
         }
+
+        let bySegment = Dictionary(grouping: series.samples, by: \.segment)
+        let withAdapter = Dictionary(grouping: series.samples.filter { $0.adapter != nil },
+                                     by: \.adapterSegment)
+
+        // A bateria é o que fica entre as duas linhas: por cima do
+        // sistema é carga, por baixo é a bateria a ajudar.
+        var batteryArea = Path(), systemArea = Path(), systemLine = Path(), adapterLine = Path()
+        for run in withAdapter.values {
+            let adapter = run.map { point($0.slot, $0.adapter ?? 0) }
+            batteryArea.addLines(adapter + run.map { point($0.slot, $0.system) }.reversed())
+            batteryArea.closeSubpath()
+            adapterLine.addLines(adapter)
+        }
+        for run in bySegment.values {
+            let system = run.map { point($0.slot, $0.system) }
+            systemArea.addLines(system + run.map { point($0.slot, 0) }.reversed())
+            systemArea.closeSubpath()
+            systemLine.addLines(system)
+        }
+
+        return ZStack {
+            batteryArea.fill(PFColor.amberSoft)
+            systemArea.fill(PFColor.blueSoft.opacity(series.hasAdapter ? 0.55 : 1))
+            systemLine.stroke(PFColor.blue, style: Self.line)
+            adapterLine.stroke(PFColor.green, style: Self.line)
+        }
+        // Como no `Canvas`: o que sai da área de dados não se desenha.
+        .clipped()
         .accessibilityHidden(true)
     }
 

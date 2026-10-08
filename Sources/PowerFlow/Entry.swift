@@ -189,6 +189,9 @@ enum Entry {
                     delegate.options.focusWalk = (folder, steps)
                 }
                 delegate.options.motionProbe = value(after: "--motion-probe")
+                if arguments.contains("--growth-probe") {
+                    delegate.options.growthProbe = value(after: "--growth-probe").flatMap(Double.init) ?? 30
+                }
                 delegate.options.reduceMotion = arguments.contains("--reduce-motion")
                 app.delegate = delegate
                 app.setActivationPolicy(.regular)

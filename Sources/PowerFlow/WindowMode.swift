@@ -24,6 +24,8 @@ final class WindowModeDelegate: NSObject, NSApplicationDelegate {
         var focusWalk: (folder: String, steps: Int)?
         /// `--motion-probe <pasta>`: mede o movimento do painel (`MotionProbe`).
         var motionProbe: String?
+        /// `--growth-probe [s]`: confere que nada se acumula com o painel a receber leituras (`GrowthProbe`).
+        var growthProbe: Double?
         var reduceMotion = false
     }
 
@@ -31,6 +33,7 @@ final class WindowModeDelegate: NSObject, NSApplicationDelegate {
     private var window: NSWindow?
     private var monitor: PowerMonitor?
     private var probe: MotionProbe?
+    private var growthProbe: GrowthProbe?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         defer {
@@ -48,6 +51,11 @@ final class WindowModeDelegate: NSObject, NSApplicationDelegate {
 
         if let folder = options.motionProbe {
             startProbe(folder)
+            return
+        }
+
+        if let seconds = options.growthProbe {
+            startGrowthProbe(seconds)
             return
         }
 
@@ -90,6 +98,24 @@ final class WindowModeDelegate: NSObject, NSApplicationDelegate {
         self.window = window
         self.probe = probe
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { probe.run() }
+    }
+
+    private func startGrowthProbe(_ seconds: Double) {
+        let window = NSWindow(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: false)
+        let probe = GrowthProbe(seconds: seconds, window: window)
+        let hosting = NSHostingController(rootView: ProbePanel(feed: probe.feed, navigation: probe.navigation))
+        hosting.sizingOptions = .preferredContentSize
+        window.contentViewController = hosting
+        window.title = "PowerFlow · sonda"
+        // Por cima das outras janelas e em todos os Espaços, também sobre uma
+        // app em ecrã inteiro: tapada, não se redesenhava.
+        window.level = .floating
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        self.window = window
+        growthProbe = probe
+        probe.run()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
