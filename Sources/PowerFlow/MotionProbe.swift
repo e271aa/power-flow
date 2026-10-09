@@ -67,6 +67,50 @@ final class MotionProbe {
         let prepare: () -> Void
         let trigger: () -> Void
         var seconds: Double = 1.2
+        /// Medir a posição ponto a ponto contra a curva do handoff.
+        var curve: Curve?
+    }
+
+    /// O que se acompanha fotograma a fotograma, e contra que curva.
+    enum Curve {
+        /// O ecrã que entra, na horizontal: `.spring(response: 0.3, dampingFraction: 1)`.
+        case push
+        /// A linha que sobe na lista, na vertical: `PFMotion.layout`, easeInOut 0,25 s.
+        case reorder
+
+        var expectedName: String {
+            switch self {
+            case .push: "spring(response 0,3, amortecimento 1)"
+            case .reorder: "easeInOut 0,25 s"
+            }
+        }
+
+        /// A fração do caminho já feita aos `t` segundos.
+        func expected(_ t: Double) -> Double {
+            guard t > 0 else { return 0 }
+            switch self {
+            case .push:
+                // Mola com amortecimento crítico: ω = 2π / resposta.
+                let omega = 2 * Double.pi / 0.3
+                return 1 - (1 + omega * t) * exp(-omega * t)
+            case .reorder:
+                return Self.cubicBezier(min(t / 0.25, 1), 0.42, 0, 0.58, 1)
+            }
+        }
+
+        /// A curva de Bézier cúbica do `easeInOut`: o y para um x, por bisseção.
+        private static func cubicBezier(_ x: Double, _ x1: Double, _ y1: Double,
+                                        _ x2: Double, _ y2: Double) -> Double {
+            func bezier(_ s: Double, _ a: Double, _ b: Double) -> Double {
+                3 * (1 - s) * (1 - s) * s * a + 3 * (1 - s) * s * s * b + s * s * s
+            }
+            var low = 0.0, high = 1.0
+            for _ in 0..<40 {
+                let mid = (low + high) / 2
+                if bezier(mid, x1, x2) < x { low = mid } else { high = mid }
+            }
+            return bezier((low + high) / 2, y1, y2)
+        }
     }
 
     private struct Frame {
@@ -94,7 +138,7 @@ final class MotionProbe {
         let nav = navigation, feed = feed
         return [
             Step(name: "push-clique (Bateria)", prepare: { feed.load(.charging) },
-                 trigger: { nav.push(.battery, reduceMotion: self.reduceMotion) }),
+                 trigger: { nav.push(.battery, reduceMotion: self.reduceMotion) }, curve: .push),
             Step(name: "voltar-clique", prepare: { nav.push(.battery, reduceMotion: true) },
                  trigger: { nav.pop(animated: true, reduceMotion: self.reduceMotion) }),
             Step(name: "voltar-Esc (teclado)", prepare: { nav.push(.battery, reduceMotion: true) },
@@ -138,6 +182,22 @@ final class MotionProbe {
                          feed.firstRun = false
                      }
                  }),
+            Step(name: "push-clique (Por app)", prepare: { feed.load(.charging) },
+                 trigger: { nav.push(.apps, reduceMotion: self.reduceMotion) }, curve: .push),
+            Step(name: "troca de ordem das apps (1.ª ↔ 2.ª)", prepare: {
+                     feed.load(.charging)
+                     nav.push(.apps, reduceMotion: true)
+                 },
+                 trigger: {
+                     // A segunda passa a gastar mais do que a primeira: trocam de lugar.
+                     var apps = feed.apps
+                     guard apps.report.apps.count >= 2 else { return }
+                     let first = apps.report.apps[0].watts
+                     apps.report.apps[0].watts = apps.report.apps[1].watts
+                     apps.report.apps[1].watts = first
+                     apps.report.apps.swapAt(0, 1)
+                     feed.apps = apps
+                 }, curve: .reorder),
             Step(name: "Por app: «A medir…» → lista", prepare: {
                      feed.load(.charging)
                      feed.apps = AppsInput()
@@ -278,6 +338,10 @@ final class MotionProbe {
             }
         }
 
+        if let curve = step.curve {
+            logCurve(curve, before: before, after: after, last: last)
+        }
+
         // Quatro fotogramas para ver a olho.
         let slug = String(format: "%02d", index + 1)
         for wanted in [0.05, 0.125, 0.25, 0.5] {
@@ -287,6 +351,87 @@ final class MotionProbe {
         }
         Self.writePNG(last.pixels, to: "\(folder)/\(slug)-fim.png")
         runStep(index + 1)
+    }
+
+    // MARK: - Curvas, ponto a ponto
+
+    /// Em cada fotograma, onde está um pedaço do fim que só existe uma vez (o
+    /// título do ecrã que entra; o ícone da app que sobe): a fração do caminho
+    /// feita, contra a curva do handoff, com o atraso de arranque que melhor a explica.
+    private func logCurve(_ curve: Curve, before: Frame, after: [Frame], last: Frame) {
+        let patch: CGRect
+        let range: ClosedRange<Int>
+        let path: Double
+        switch curve {
+        case .push:
+            // O cabeçalho do ecrã que entra (voltar e título), que vem da direita.
+            patch = CGRect(x: 8, y: 8, width: 150, height: 30)
+            range = 0...Int(Self.canvas.width)
+            path = Double(Self.canvas.width)
+        case .reorder:
+            guard let box = Self.changedBox(before.pixels, last.pixels) else {
+                log("     curva: nada mudou (a lista não trocou de ordem)")
+                return
+            }
+            // O ícone (e o início do nome) da linha que ficou em cima, que vem de baixo.
+            patch = CGRect(x: box.minX, y: box.minY + 4, width: min(60, box.width), height: 34)
+            range = -60...60
+            path = 42
+        }
+        let points: [(Double, Double?)] = after.map { frame in
+            (frame.time, Self.locate(patch, of: last.pixels, in: frame.pixels, curve: curve, range: range)
+                .map { 1 - $0 / path })
+        }
+        // O atraso de arranque (0 a 6 fotogramas) que melhor explica a curva.
+        func error(_ lag: Double) -> (rms: Double, worst: Double) {
+            var sum = 0.0, worst = 0.0, count = 0
+            for case let (t, measured?) in points where t <= 0.7 {
+                let difference = measured - curve.expected(t - lag)
+                sum += difference * difference
+                worst = max(worst, abs(difference))
+                count += 1
+            }
+            return (count > 0 ? (sum / Double(count)).squareRoot() : .infinity, worst)
+        }
+        let lag = (0...6).map { Double($0) / 60 }.min { error($0).rms < error($1).rms } ?? 0
+        let (rms, worst) = error(lag)
+        let reached90 = points.first { ($0.1 ?? 0) >= 0.9 }.map { String(format: "%.0f ms", ($0.0 - lag) * 1000) } ?? "—"
+        log(String(format: "     curva contra %@: caminho %.0f pt; atraso de arranque %.0f ms; 90 %% aos %@ depois dele; diferença média %.3f, maior %.3f",
+                   curve.expectedName, path, lag * 1000, reached90, rms, worst))
+        var table: [String] = []
+        for (index, point) in points.enumerated() where index % 2 == 0 && point.0 <= 0.6 {
+            let measured = point.1.map { String(format: "%.2f", $0) } ?? "fora"
+            table.append(String(format: "%3.0f ms %@/%.2f", point.0 * 1000, measured, curve.expected(point.0 - lag)))
+        }
+        log("     [medido/esperado] " + table.joined(separator: " · "))
+    }
+
+    /// Quanto (em pt) o pedaço do fotograma do fim está deslocado no fotograma
+    /// dado: na horizontal para o push, na vertical para a lista. `nil`: não está
+    /// à vista (ainda fora do painel), ou nada coincide.
+    private static func locate(_ patch: CGRect, of final: [UInt8], in pixels: [UInt8],
+                               curve: Curve, range: ClosedRange<Int>) -> Double? {
+        let width = Int(canvas.width), height = Int(canvas.height)
+        var best: Int?, bestScore = Double.infinity
+        for shift in range {
+            let (dx, dy) = curve == .push ? (shift, 0) : (0, shift)
+            guard Int(patch.minX) + dx >= 0, Int(patch.maxX) + dx <= width,
+                  Int(patch.minY) + dy >= 0, Int(patch.maxY) + dy <= height else { continue }
+            var sum = 0, count = 0
+            for y in stride(from: Int(patch.minY), to: Int(patch.maxY), by: 1) {
+                for x in stride(from: Int(patch.minX), to: Int(patch.maxX), by: 1) {
+                    let a = ((y + dy) * width + x + dx) * 4, b = (y * width + x) * 4
+                    sum += abs(Int(pixels[a]) - Int(final[b])) + abs(Int(pixels[a + 1]) - Int(final[b + 1]))
+                        + abs(Int(pixels[a + 2]) - Int(final[b + 2]))
+                    count += 1
+                }
+            }
+            let score = Double(sum) / Double(count)
+            if score < bestScore { bestScore = score; best = shift }
+        }
+        // Acima disto o pedaço não está lá: o que coincide menos mal é outra coisa.
+        guard let best, bestScore < 18 else { return nil }
+        return Double(best)
     }
 
     // MARK: - Ritmo dos números, ao vivo
