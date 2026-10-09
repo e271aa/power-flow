@@ -12,6 +12,8 @@
 
 A menu bar app for Apple Silicon · adapter, battery and system at a glance · it only reads sensors.
 
+**[Download](https://github.com/e271aa/power-flow/releases/latest)** · [Installation steps](#install-from-the-disk-image)
+
 <br>
 
 ![Swift](https://img.shields.io/badge/Swift-5.9-F05138?logo=swift&logoColor=white)
