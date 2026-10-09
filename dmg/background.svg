@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="400" viewBox="0 0 660 400">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FBFBFD"/>
+      <stop offset="1" stop-color="#ECEEF2"/>
+    </linearGradient>
+    <linearGradient id="flow" x1="262" y1="0" x2="398" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4CC27A"/>
+      <stop offset="1" stop-color="#5C9BEB"/>
+    </linearGradient>
+  </defs>
+  <rect width="660" height="400" fill="url(#bg)"/>
+  <!-- A seta da app (x 165) para Applications (x 495), à altura dos ícones (y 180). -->
+  <path d="M262 180 H394" stroke="url(#flow)" stroke-width="6" stroke-linecap="round" fill="none"/>
+  <path d="M376 166 L398 180 L376 194" stroke="#5C9BEB" stroke-width="6" stroke-linecap="round"
+        stroke-linejoin="round" fill="none"/>
+  <text x="330" y="318" text-anchor="middle" font-family="SF Pro Display, Helvetica Neue, Helvetica"
+        font-size="17" font-weight="600" fill="#1D1D1F">Drag PowerFlow to Applications to install</text>
+  <text x="330" y="344" text-anchor="middle" font-family="SF Pro Text, Helvetica Neue, Helvetica"
+        font-size="12.5" fill="#5F6268">If macOS won’t open it the first time: System Settings › Privacy &amp; Security › Open Anyway.</text>
+</svg>

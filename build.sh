@@ -73,14 +73,26 @@ echo "==> Auto-verificação"
 
 if [ "${1:-}" = "--dmg" ]; then
     echo "==> A criar o DMG"
-    DMG="${APP_NAME}-${VERSION}.dmg"
-    STAGING="$(mktemp -d)"
-    cp -R "$BUNDLE" "$STAGING/"
-    ln -s /Applications "$STAGING/Applications"
+    # Sem a versão no nome: a versão está na app (Acerca do PowerFlow).
+    DMG="power-flow.dmg"
+    # A janela desenhada (fundo, ícones no sítio, sem barras) vem do dmgbuild,
+    # que escreve a disposição do Finder sem o abrir. Instala-se uma vez num
+    # ambiente próprio dentro de .build/.
+    VENV=".build/dmgbuild-venv"
+    if [ ! -x "$VENV/bin/dmgbuild" ]; then
+        python3 -m venv "$VENV"
+        "$VENV/bin/pip" install --quiet --disable-pip-version-check "dmgbuild>=1.6,<2"
+    fi
+    # O fundo a 1x e a 2x, num só TIFF: o Finder escolhe o do ecrã.
+    ART=".build/dmg"
+    mkdir -p "$ART"
+    rsvg-convert -w 660 -h 400 dmg/background.svg -o "$ART/background.png"
+    rsvg-convert -w 1320 -h 800 dmg/background.svg -o "$ART/background@2x.png"
+    tiffutil -cathidpicheck "$ART/background.png" "$ART/background@2x.png" -out "$ART/background.tiff" 2>/dev/null
     rm -f "$DMG"
-    hdiutil create -volname "$APP_NAME" -srcfolder "$STAGING" \
-        -ov -format UDZO "$DMG" >/dev/null
-    rm -rf "$STAGING"
+    "$VENV/bin/dmgbuild" -s dmg/settings.py -D app="$BUNDLE" -D background="$ART/background.tiff" \
+        -D icon="${BUNDLE}/Contents/Resources/AppIcon.icns" "power-flow" "$DMG" 2>&1 \
+        | grep -v -E "is deprecated|^$" || true
     echo "    ${DMG} ($(du -h "$DMG" | cut -f1))"
 fi
 
