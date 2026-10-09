@@ -227,6 +227,11 @@ extension StatusItemController {
         after(navigated + 9.4) {
             check(self.popover?.isShown == true && FirstRunCard.shownCount == 0,
                   "reaberto, o cartão não volta")
+            // Abrir com o rato não acende o anel de foco em nenhum botão: o
+            // primeiro Tab é que o leva ao primeiro controlo.
+            let responder = self.popover?.contentViewController?.view.window?.firstResponder
+            check(!PanelFocus.isVisibleStop(responder),
+                  "ao abrir, nenhum controlo com o anel de foco (\(PanelFocus.describe(responder)))")
         }
 
         // Teclado (Fase 10): cada paragem do Tab é uma vista que se vê, no

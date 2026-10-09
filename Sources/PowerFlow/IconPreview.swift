@@ -17,12 +17,13 @@ enum IconPreview {
 
     private static var cases: [Case] {
         func battery(_ percent: Int, charging: Bool = false, watts: BarItem.Reading = .watts(15)) -> Case {
+            // «a carregar» aqui é o raio: o cabo ligado.
             let reading: String = switch watts {
             case .watts(let value): "\(value) W"
             case .settling: "a medir"
             case .unavailable: "sem leitura"
             }
-            return Case(label: "\(percent) %\(charging ? " a carregar" : "") · \(reading)",
+            return Case(label: "\(percent) %\(charging ? " com cabo" : "") · \(reading)",
                         item: BarItem(content: .batteryWatts, percent: percent, isCharging: charging, reading: watts))
         }
         var all: [Case] = []
@@ -30,8 +31,14 @@ enum IconPreview {
         for percent in [100, 80, 50, 20, 5] { all.append(battery(percent, charging: true)) }
         for watts in [5, 120] { all.append(battery(80, watts: .watts(watts))) }
         all.append(battery(80, watts: .unavailable))
-        all.append(Case(label: "Só bateria · 80 % a carregar",
+        all.append(Case(label: "Só bateria · 80 % com cabo",
                         item: BarItem(content: .battery, percent: 80, isCharging: true, reading: .watts(15))))
+        all.append(Case(label: "Bateria sem % · 80 %",
+                        item: BarItem(content: .battery, percent: 80, isCharging: false, showsPercent: false,
+                                      reading: .watts(15))))
+        all.append(Case(label: "Bateria sem % e watts · 20 % com cabo",
+                        item: BarItem(content: .batteryWatts, percent: 20, isCharging: true, showsPercent: false,
+                                      reading: .watts(15))))
         all.append(Case(label: "Só watts · 15 W",
                         item: BarItem(content: .watts, percent: 80, isCharging: false, reading: .watts(15))))
         all.append(Case(label: "Mac sem bateria · 120 W",
@@ -137,16 +144,20 @@ enum IconPreview {
         }
         for percent in [100, 80, 50, 20, 5] {
             for charging in [false, true] {
-                let group = MenuBarIcon.digitsGroupWidth(percent: percent, charging: charging)
+                let group = MenuBarIcon.digitsGroupWidth(percent: percent, bolt: charging)
                 if group > MenuBarIcon.digitsRoom {
                     ok = false
                     lines.append(String(format: "  FALHOU: %d %%%@ ocupa %.1f de %.0f", percent,
-                                        charging ? " a carregar" : "", group, MenuBarIcon.digitsRoom))
+                                        charging ? " com raio" : "", group, MenuBarIcon.digitsRoom))
                 }
             }
         }
-        let tightest = MenuBarIcon.digitsGroupWidth(percent: 100, charging: true)
-        lines.append(String(format: "  «100» com o raio: %.1f de %.0f pt dentro do corpo", tightest, MenuBarIcon.digitsRoom))
+        lines.append(String(format: "  a percentagem e os watts: %.1f e %.1f pt", MenuBarIcon.percentFont(80, bolt: true).pointSize,
+                            wattsFont.pointSize))
+        let tightest = MenuBarIcon.digitsGroupWidth(percent: 100, bolt: true)
+        let tightestSize = MenuBarIcon.percentFont(100, bolt: true).pointSize
+        lines.append(String(format: "  «100» com o raio: %.1f de %.0f pt dentro do corpo, a %.1f pt", tightest,
+                            MenuBarIcon.digitsRoom, tightestSize))
         lines.append(ok ? "  certo" : "  FALHOU")
         return lines.joined(separator: "\n")
     }

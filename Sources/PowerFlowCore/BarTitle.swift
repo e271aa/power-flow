@@ -25,17 +25,25 @@ public struct BarItem: Hashable, Sendable {
     public let content: Content
     /// 0 a 100. Vem do IORegistry: não depende dos sensores.
     public let percent: Int
-    /// O raio. Também vem do IORegistry, como no ícone do sistema: a carga em
-    /// pausa, com o cabo ligado, usa a variante normal.
+    /// Os algarismos dentro da bateria. A dica e o VoiceOver dizem a
+    /// percentagem na mesma.
+    public let showsPercent: Bool
+    /// A carregar, pelo IORegistry. É o que a dica e o VoiceOver dizem.
     public let isCharging: Bool
+    /// O raio. Como no ícone do sistema, aparece com o cabo ligado, também com
+    /// a carga em pausa (medido na barra, aos 80 % em pausa).
+    public let showsBolt: Bool
     public let hasBattery: Bool
     public var reading: Reading
 
     /// Um item com valores fixos: os mosaicos das Definições e a pré-visualização.
-    public init(content: Content, percent: Int, isCharging: Bool, hasBattery: Bool = true, reading: Reading) {
+    public init(content: Content, percent: Int, isCharging: Bool, showsBolt: Bool? = nil,
+                showsPercent: Bool = true, hasBattery: Bool = true, reading: Reading) {
         self.content = content
         self.percent = min(max(percent, 0), 100)
+        self.showsPercent = showsPercent
         self.isCharging = isCharging
+        self.showsBolt = showsBolt ?? isCharging
         self.hasBattery = hasBattery
         self.reading = reading
     }
@@ -43,8 +51,8 @@ public struct BarItem: Hashable, Sendable {
     public static func content(mode: BarMode, hasBattery: Bool) -> Content {
         guard hasBattery else { return .watts }
         switch mode {
-        case .battery: return .battery
-        case .batteryWatts: return .batteryWatts
+        case .battery, .batteryPlain: return .battery
+        case .batteryWatts, .batteryPlainWatts: return .batteryWatts
         case .watts: return .watts
         }
     }
@@ -54,7 +62,9 @@ public struct BarItem: Hashable, Sendable {
         hasBattery = battery.isPresent
         content = Self.content(mode: mode, hasBattery: battery.isPresent)
         percent = min(max(battery.percentage, 0), 100)
+        showsPercent = mode.showsPercent
         isCharging = battery.isPresent && battery.isCharging && snapshot.source == .adapter
+        showsBolt = battery.isPresent && snapshot.source == .adapter
         reading = Self.reading(snapshot: snapshot, sensorsAvailable: sensorsAvailable)
     }
 

@@ -9,44 +9,62 @@ import PowerFlowCore
 /// de assets) e marcada como `isTemplate`, por isso só tem alfa: o macOS trata
 /// do claro, do escuro, do item selecionado e das barras translúcidas.
 ///
-/// Geometria do handoff do ícone da barra (versão base), em pt e em
-/// coordenadas AppKit, com origem em baixo e 22 pt de altura. Alfas: 1 cheio,
-/// 0,35 a parte vazia, 0 os recortes (os algarismos e o raio, abertos no
-/// enchimento com `.destinationOut`, dentro da própria imagem).
+/// A bateria é a do sistema, medida numa captura da barra (2 px por pt) e
+/// reproduzida píxel a píxel; o handoff do ícone da barra tinha as proporções
+/// do SF Symbols, mais pequenas. Em pt e em coordenadas AppKit, com origem em
+/// baixo e 22 pt de altura. Alfas: 1 cheio, 0,35 a parte vazia, 0 os recortes
+/// (os algarismos e o raio, abertos no corpo com `.destinationOut`, dentro da
+/// própria imagem).
 enum MenuBarIcon {
     static let height: CGFloat = 22
-    /// O espaço de cada lado da imagem, dentro do item.
-    static let itemPadding: CGFloat = 4
 
-    private static let body = NSRect(x: 0, y: 5, width: 22, height: 11)
+    private static let body = NSRect(x: 0, y: 5, width: 23, height: 12)
     private static let bodyRadius: CGFloat = 3.5
-    /// Centro do corpo: os algarismos centram-se aqui.
-    private static let center = NSPoint(x: 11, y: 10.5)
+    /// Onde os algarismos se centram: ao meio do corpo na largura e meio ponto
+    /// acima na altura, como no sistema.
+    private static let center = NSPoint(x: 11.5, y: 11.5)
     private static let emptyAlpha: CGFloat = 0.35
+    /// O lugar do raio, à direita dos algarismos: 4 pt de largura, a 0,5 pt deles.
+    private static let boltSize = NSSize(width: 4, height: 6.5)
+    private static let boltGap: CGFloat = 0.5
 
-    /// Os watts ao lado da bateria: o mesmo tipo de letra dos algarismos dela
-    /// (SF Pro Bold, algarismos tabulares), um pouco maior.
-    static let wattsFont = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .bold)
-    private static let wattsX: CGFloat = 28
+    /// Os algarismos da bateria: SF Pro Medium de 10 pt, tabulares.
+    private static let percentSize: CGFloat = 10
+    private static let percentWeight = NSFont.Weight.medium
+    /// Os watts ao lado: o mesmo tipo de letra e o mesmo tamanho dos algarismos da bateria.
+    static let wattsFont = NSFont.monospacedDigitSystemFont(ofSize: percentSize, weight: percentWeight)
+    /// Onde os watts começam, contado do início da bateria: 3 pt depois do polo.
+    private static let wattsX: CGFloat = 28.5
     /// «Só watts», sem bateria ao lado: o tamanho do texto da barra.
     static let wattsOnlyFont = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .medium)
 
-    static func percentFont(_ percent: Int) -> NSFont {
-        // «100» com o raio não cabe a 8 pt: é a única exceção.
-        .monospacedDigitSystemFont(ofSize: percent >= 100 ? 7 : 8, weight: .bold)
+    /// O tamanho dos algarismos: 10 pt, ou o maior que caiba quando não cabem
+    /// (só «100» com o raio), de meio em meio ponto.
+    static func percentFont(_ percent: Int, bolt: Bool) -> NSFont {
+        var size = percentSize
+        while size > 6 {
+            let font = NSFont.monospacedDigitSystemFont(ofSize: size, weight: percentWeight)
+            if groupWidth(percent, bolt: bolt, font: font) <= digitsRoom { return font }
+            size -= 0.5
+        }
+        return .monospacedDigitSystemFont(ofSize: size, weight: percentWeight)
+    }
+
+    private static func groupWidth(_ percent: Int, bolt: Bool, font: NSFont) -> CGFloat {
+        let digits = (String(percent) as NSString).size(withAttributes: [.font: font]).width
+        return digits + (bolt ? boltGap + boltSize.width : 0)
     }
 
     // MARK: - Larguras
 
-    /// Algarismos e raio juntos, centrados no corpo. Têm de caber nos 20 pt
+    /// Algarismos e raio juntos, centrados no corpo. Têm de caber nos 21 pt
     /// de dentro (1 pt de margem de cada lado).
-    static func digitsGroupWidth(percent: Int, charging: Bool) -> CGFloat {
-        let digits = (String(percent) as NSString).size(withAttributes: [.font: percentFont(percent)]).width
-        return digits + (charging ? 4.5 : 0)
+    static func digitsGroupWidth(percent: Int, bolt: Bool) -> CGFloat {
+        groupWidth(percent, bolt: bolt, font: percentFont(percent, bolt: bolt))
     }
 
     /// O espaço dentro do corpo onde os algarismos e o raio podem ir.
-    static let digitsRoom: CGFloat = 20
+    static let digitsRoom: CGFloat = 21
 
     /// A largura que os watts reservam: a do texto mais largo, medida na fonte.
     static func slot(_ font: NSFont) -> CGFloat {
@@ -54,17 +72,34 @@ enum MenuBarIcon {
     }
 
     /// A largura da imagem. Só depende do que o item mostra, nunca dos valores.
+    /// Em pt inteiros, para o item acabar num píxel.
     static func width(for content: BarItem.Content) -> CGFloat {
-        switch content {
-        case .battery: 25
+        let width: CGFloat = switch content {
+        case .battery: 25.5
         case .batteryWatts: wattsX + slot(wattsFont)
         case .watts: slot(wattsOnlyFont)
         }
+        return width.rounded(.up)
     }
 
-    /// O comprimento do item na barra.
+    /// O comprimento do item na barra: o da imagem. A seleção do sistema já
+    /// põe a margem dela à volta; uma margem nossa somava-se à dele.
     static func itemLength(for content: BarItem.Content) -> CGFloat {
-        width(for: content) + itemPadding * 2
+        width(for: content)
+    }
+
+    /// Os watts mais comuns têm dois algarismos. O conjunto centra-se como se
+    /// tivesse pelo menos esses: com um algarismo, ou «—», não se mexe, e só
+    /// acima de 100 W anda meio algarismo para a esquerda.
+    private static let typicalWatts = "88" + BarItem.narrowSpace + "W"
+
+    /// Quanto o conteúdo se afasta da esquerda para ficar ao centro da imagem,
+    /// em pt inteiros (as arestas ficam no píxel a 1× e a 2×).
+    private static func centeringOffset(contentStart: CGFloat, text: String, font: NSFont,
+                                        imageWidth: CGFloat) -> CGFloat {
+        let measured = max((text as NSString).size(withAttributes: [.font: font]).width,
+                           (typicalWatts as NSString).size(withAttributes: [.font: font]).width)
+        return max(0, ((imageWidth - contentStart - measured) / 2).rounded())
     }
 
     // MARK: - Imagem
@@ -97,10 +132,19 @@ enum MenuBarIcon {
         case .battery:
             drawBattery(item, color: color)
         case .batteryWatts:
+            let offset = centeringOffset(contentStart: wattsX, text: watts, font: wattsFont,
+                                         imageWidth: width(for: .batteryWatts))
+            NSGraphicsContext.saveGraphicsState()
+            let shift = NSAffineTransform()
+            shift.translateX(by: offset, yBy: 0)
+            shift.concat()
             drawBattery(item, color: color)
             drawText(watts, font: wattsFont, x: wattsX, centerY: center.y, color: color)
+            NSGraphicsContext.restoreGraphicsState()
         case .watts:
-            drawText(watts, font: wattsOnlyFont, x: 0, centerY: height / 2, color: color)
+            let offset = centeringOffset(contentStart: 0, text: watts, font: wattsOnlyFont,
+                                         imageWidth: width(for: .watts))
+            drawText(watts, font: wattsOnlyFont, x: offset, centerY: height / 2, color: color)
         }
     }
 
@@ -125,38 +169,71 @@ enum MenuBarIcon {
             NSGraphicsContext.restoreGraphicsState()
         }
 
+        // Sem algarismos, só o raio, maior, ao meio do corpo.
+        guard item.showsPercent else {
+            if item.showsBolt, let symbol = plainBoltSymbol {
+                let size = symbol.size
+                symbol.draw(in: NSRect(x: body.midX - size.width / 2, y: body.midY - size.height / 2,
+                                       width: size.width, height: size.height),
+                            from: .zero, operation: .destinationOut, fraction: 1)
+            }
+            return
+        }
+
         // Os algarismos e o raio abrem-se no corpo, cheio ou vazio.
-        let font = percentFont(item.percent)
+        let font = percentFont(item.percent, bolt: item.showsBolt)
         let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.black]
         let digits = String(item.percent) as NSString
         let digitsWidth = digits.size(withAttributes: attributes).width
-        let group = digitsGroupWidth(percent: item.percent, charging: item.isCharging)
+        let group = groupWidth(item.percent, bolt: item.showsBolt, font: font)
         let x = ((center.x - group / 2) * 2).rounded() / 2
 
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current?.compositingOperation = .destinationOut
         digits.draw(with: NSRect(x: x, y: center.y - font.capHeight / 2, width: 0, height: 0),
                     options: [], attributes: attributes)
-        if item.isCharging {
-            NSColor.black.setFill()
-            bolt(in: NSRect(x: x + digitsWidth + 0.5, y: 6.75, width: 4, height: 7.5)).fill()
+        if item.showsBolt {
+            // O raio centra-se ao meio do corpo; os algarismos, meio ponto acima.
+            let box = NSRect(x: x + digitsWidth + boltGap, y: body.midY - boltSize.height / 2,
+                             width: boltSize.width, height: boltSize.height)
+            if let symbol = boltSymbol {
+                let size = symbol.size
+                symbol.draw(in: NSRect(x: box.midX - size.width / 2, y: box.midY - size.height / 2,
+                                       width: size.width, height: size.height),
+                            from: .zero, operation: .destinationOut, fraction: 1)
+            } else {
+                NSGraphicsContext.current?.compositingOperation = .destinationOut
+                NSColor.black.setFill()
+                bolt(in: box).fill()
+            }
         }
         NSGraphicsContext.restoreGraphicsState()
     }
 
-    /// O polo: a metade direita de uma cápsula, a 1 pt do corpo.
+    /// O polo: a metade direita de uma cápsula, 1,5 × 4 pt, a 1 pt do corpo.
     private static func drawCap(alpha: CGFloat, color: NSColor) {
         NSGraphicsContext.saveGraphicsState()
-        NSRect(x: 23, y: 0, width: 10, height: height).clip()
+        NSRect(x: 24, y: 0, width: 10, height: height).clip()
         color.withAlphaComponent(alpha).setFill()
-        NSBezierPath(roundedRect: NSRect(x: 21.5, y: 8, width: 3, height: 5), xRadius: 1.5, yRadius: 1.5).fill()
+        NSBezierPath(roundedRect: NSRect(x: 22.5, y: 9, width: 3, height: 4), xRadius: 1.5, yRadius: 1.5).fill()
         NSGraphicsContext.restoreGraphicsState()
     }
 
-    /// O raio, com as proporções do `bolt.fill` do sistema, numa caixa.
+    /// O raio do sistema: o `bolt.fill` (macOS 11 ou mais recente) a 6,5 pt,
+    /// peso Medium, ajustado à captura da barra. O polígono que o imitava tinha
+    /// as pontas em bico e a barra do meio fina, e parecia mais pequeno.
+    private static let boltSymbol: NSImage? = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: nil)?
+        .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 6.5, weight: .medium))
+
+    /// Na bateria sem número o raio está sozinho e é maior: 9 pt, perto da
+    /// altura do corpo. Não medido no sistema (não há captura deste caso).
+    private static let plainBoltSymbol: NSImage? = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: nil)?
+        .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 9, weight: .medium))
+
+    /// O raio desenhado à mão, se o símbolo faltar, numa caixa.
     private static func bolt(in box: NSRect) -> NSBezierPath {
-        let points: [(CGFloat, CGFloat)] = [(0.611, 1), (0, 0.4375), (0.444, 0.4375),
-                                            (0.389, 0), (1, 0.594), (0.556, 0.594)]
+        let points: [(CGFloat, CGFloat)] = [(0.6, 1), (0.8, 1), (0.36, 0.508), (1, 0.508),
+                                            (0.4, 0), (0.3, 0), (0.57, 0.385), (0.05, 0.385)]
         let path = NSBezierPath()
         for (index, point) in points.enumerated() {
             let p = NSPoint(x: box.minX + point.0 * box.width, y: box.minY + point.1 * box.height)
@@ -168,8 +245,8 @@ enum MenuBarIcon {
 
     // MARK: - Watts
 
-    /// Os algarismos centram-se pelas maiúsculas: ao lado da bateria, na altura
-    /// do corpo dela; sozinhos, na da barra.
+    /// Os algarismos centram-se pelas maiúsculas: ao lado da bateria, à altura
+    /// dos dela; sozinhos, ao meio da barra.
     private static func drawText(_ text: String, font: NSFont, x: CGFloat, centerY: CGFloat, color: NSColor) {
         (text as NSString).draw(with: NSRect(x: x, y: centerY - font.capHeight / 2, width: 0, height: 0),
                                 options: [], attributes: [.font: font, .foregroundColor: color])

@@ -78,13 +78,28 @@ final class SettingsTests: XCTestCase {
         BarItem(mode: mode, snapshot: s, sensorsAvailable: sensors)
     }
 
-    func testOsTresModos() {
+    func testOsCincoModos() {
+        XCTAssertEqual(BarMode.allCases, [.battery, .batteryWatts, .batteryPlain, .batteryPlainWatts, .watts],
+                       "a ordem dos mosaicos")
         XCTAssertEqual(BarItem.content(mode: .battery, hasBattery: true), .battery)
         XCTAssertEqual(BarItem.content(mode: .batteryWatts, hasBattery: true), .batteryWatts)
+        XCTAssertEqual(BarItem.content(mode: .batteryPlain, hasBattery: true), .battery)
+        XCTAssertEqual(BarItem.content(mode: .batteryPlainWatts, hasBattery: true), .batteryWatts)
         XCTAssertEqual(BarItem.content(mode: .watts, hasBattery: true), .watts)
         XCTAssertTrue(BarMode.battery.showsBattery)
-        XCTAssertTrue(BarMode.batteryWatts.showsBattery)
+        XCTAssertTrue(BarMode.batteryPlain.showsBattery)
         XCTAssertFalse(BarMode.watts.showsBattery, "«Só watts» não tem bateria")
+    }
+
+    /// «Bateria sem %»: a bateria sem algarismos; a dica e o VoiceOver dizem a percentagem na mesma.
+    func testABateriaSemNumeroNaoTemAlgarismosMasDizAPercentagem() {
+        let plain = item(snapshot(watts: 15), mode: .batteryPlainWatts)
+        XCTAssertFalse(plain.showsPercent)
+        XCTAssertTrue(item(snapshot(watts: 15), mode: .batteryWatts).showsPercent)
+        XCTAssertEqual(plain.accessibilityValue(language: "pt-PT"), "15 watts, bateria a 80 por cento")
+        XCTAssertTrue(plain.toolTip(language: "pt-PT").contains("Bateria a 80"))
+        XCTAssertEqual(AppSettings.barMode({ let d = freshDefaults(); d.set("batteryPlain", forKey: "pf.barMode"); return d }()),
+                       .batteryPlain, "o valor novo lê-se e não é migrado")
     }
 
     /// E4: num Mac sem bateria não se desenha bateria, em nenhum modo.
@@ -116,13 +131,19 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(settling.percent, 80)
     }
 
-    /// O raio vem do IORegistry, como no ícone do sistema. A carga em pausa usa a variante normal.
-    func testORaioSoAparecerACarregar() {
-        XCTAssertTrue(item(snapshot(watts: 15, charging: true)).isCharging)
-        XCTAssertFalse(item(snapshot(watts: 15, charging: false)).isCharging, "em pausa, com o cabo")
-        XCTAssertFalse(item(snapshot(watts: 15, charging: true, plugged: false)).isCharging, "em bateria")
-        XCTAssertTrue(item(snapshot(watts: 15, charging: true), sensors: false).isCharging,
+    /// O raio aparece com o cabo ligado, como no ícone do sistema, também com a
+    /// carga em pausa. «A carregar» (dica e VoiceOver) só quando carrega.
+    func testORaioApareceComOCaboLigado() {
+        let charging = item(snapshot(watts: 15, charging: true))
+        XCTAssertTrue(charging.showsBolt)
+        XCTAssertTrue(charging.isCharging)
+        let paused = item(snapshot(watts: 15, charging: false))
+        XCTAssertTrue(paused.showsBolt, "em pausa, com o cabo: o sistema mostra o raio")
+        XCTAssertFalse(paused.isCharging, "mas não diz «a carregar»")
+        XCTAssertFalse(item(snapshot(watts: 15, charging: true, plugged: false)).showsBolt, "em bateria")
+        XCTAssertTrue(item(snapshot(watts: 15, charging: true), sensors: false).showsBolt,
                       "sem sensores o raio continua a saber-se")
+        XCTAssertFalse(item(snapshot(watts: 9, battery: false)).showsBolt, "sem bateria não há raio")
     }
 
     func testAPercentagemFicaEntre0E100() {
@@ -161,6 +182,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(item(snapshot(watts: 15.2)), item(snapshot(watts: 14.9)))
         XCTAssertNotEqual(item(snapshot(watts: 15)), item(snapshot(watts: 15, percent: 81)))
         XCTAssertNotEqual(item(snapshot(watts: 15)), item(snapshot(watts: 15, charging: true)))
+        XCTAssertNotEqual(item(snapshot(watts: 15)), item(snapshot(watts: 15, plugged: false)))
     }
 
     // MARK: - No máximo de 2 em 2 s

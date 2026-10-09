@@ -336,6 +336,10 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
         popover.contentViewController = hosting
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         hosting.view.window?.makeKey()
+        // A janela ativa dava o foco ao primeiro controlo, o «…», e o anel azul
+        // ficava aceso a cada abertura. Sem foco nenhum, o painel continua a
+        // responder ao teclado e o primeiro Tab leva o foco ao primeiro controlo.
+        hosting.view.window?.makeFirstResponder(nil)
 
         // Se o item ainda não estiver na barra, o painel não chega a abrir
         // e o delegado não é avisado de fecho nenhum.

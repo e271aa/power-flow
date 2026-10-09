@@ -199,6 +199,8 @@ private struct BarModeTile: View {
         let key: String = switch mode {
         case .battery: "s_bar_battery"
         case .batteryWatts: "s_bar_bw"
+        case .batteryPlain: "s_bar_plain"
+        case .batteryPlainWatts: "s_bar_plain_w"
         case .watts: "s_bar_w"
         }
         return L10n.string(key)
@@ -207,7 +209,8 @@ private struct BarModeTile: View {
     /// O item com os valores do exemplo: 80 %, 15 W, sem carregar.
     private var sample: NSImage {
         MenuBarIcon.image(BarItem(content: BarItem.content(mode: mode, hasBattery: true),
-                                  percent: 80, isCharging: false, reading: .watts(15)))
+                                  percent: 80, isCharging: false, showsPercent: mode.showsPercent,
+                                  reading: .watts(15)))
     }
 
     var body: some View {

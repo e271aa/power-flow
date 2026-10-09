@@ -2,11 +2,16 @@ import Foundation
 
 /// O que o item da barra de menus mostra. Guardado em `pf.barMode`.
 public enum BarMode: String, CaseIterable, Sendable {
-    case battery, batteryWatts, watts
+    /// Pela ordem dos mosaicos das Definições.
+    case battery, batteryWatts, batteryPlain, batteryPlainWatts, watts
 
     public static let `default` = BarMode.batteryWatts
 
     public var showsBattery: Bool { self != .watts }
+
+    /// A percentagem dentro da bateria. Sem ela, a bateria fica como a do
+    /// sistema com «Mostrar percentagem» desligado.
+    public var showsPercent: Bool { self == .battery || self == .batteryWatts }
 
     /// Os quatro modos da 2.0 passam aos três de agora. «Só ícone» fica com a
     /// bateria sozinha; «Ícone e %» também, porque a percentagem já está dentro
