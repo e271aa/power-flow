@@ -532,7 +532,7 @@ private struct UnavailableView: View {
                     .foregroundStyle(PFColor.fg2)
                     .fixedSize(horizontal: false, vertical: true)
 
-                // «Reportar no GitHub» aparece quando houver repositório (D3).
+                // «Reportar no GitHub» aparece quando houver URL do repositório.
                 Button(L10n.string("u_copy")) {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(Diagnostics.report(), forType: .string)

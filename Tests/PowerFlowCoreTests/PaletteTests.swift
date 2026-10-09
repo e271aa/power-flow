@@ -1,7 +1,7 @@
 import XCTest
 
-/// Guarda as cores da Fase 3 (E8, E9 e E10). Lê os temas de `powerflow-data.json`,
-/// que é a fonte de verdade, e mede-os com as mesmas fórmulas do validador de paleta
+/// Guarda as cores da paleta. Lê os temas de `Fixtures/powerflow-data.json`,
+/// que é a fonte de verdade (OKLCH), e mede-os com as mesmas fórmulas do validador de paleta
 /// (`validate_palette.js`): ΔE em OKLab ×100, daltonismo simulado com Machado et al. (2009) a 100 %, contraste WCAG.
 final class PaletteTests: XCTestCase {
     private static let themes = ["light", "dark", "hcLight", "hcDark"]
@@ -12,8 +12,7 @@ final class PaletteTests: XCTestCase {
     private typealias RGB = [Double]
 
     private func loadThemes() throws -> [String: [String: String]] {
-        let url = Self.root.appendingPathComponent(
-            "Tests/PowerFlowCoreTests/Fixtures/powerflow-data.json")
+        let url = Self.root.appendingPathComponent("Tests/PowerFlowCoreTests/Fixtures/powerflow-data.json")
         let json = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any]
         return try XCTUnwrap(json?["themes"] as? [String: [String: String]])
     }
@@ -160,7 +159,7 @@ final class PaletteTests: XCTestCase {
         }
     }
 
-    /// O `PFColor.swift` é gerado do JSON (`scripts/gen-pfcolor.mjs`). Se alguém mudar um e não o outro, falha aqui.
+    /// O `PFColor.swift` corresponde ao JSON, em Display P3. Se alguém mudar um e não o outro, falha aqui.
     func testPFColorCorrespondeAoJSON() throws {
         let themes = try loadThemes()
         let swift = try String(contentsOf: Self.root.appendingPathComponent("Sources/PowerFlow/PFColor.swift"), encoding: .utf8)
@@ -176,7 +175,7 @@ final class PaletteTests: XCTestCase {
                 let c = try color(themes, theme, token)
                 let expected = (displayP3(c) + [c.alpha]).map { String(format: "%.4f", $0) }.joined(separator: ", ")
                 let found = String(swift[try XCTUnwrap(Range(match.range(at: index + 1), in: swift))])
-                XCTAssertEqual(found, expected, "\(theme).\(token) difere do JSON; corre scripts/gen-pfcolor.mjs")
+                XCTAssertEqual(found, expected, "\(theme).\(token) difere do JSON")
             }
         }
     }

@@ -30,7 +30,9 @@ let package = Package(
         // instantâneos à mão, para correrem iguais em qualquer Mac.
         .testTarget(
             name: "PowerFlowCoreTests",
-            dependencies: ["PowerFlowCore"]
+            dependencies: ["PowerFlowCore"],
+            // Lido pelo caminho do ficheiro, não como recurso do bundle de testes.
+            exclude: ["Fixtures"]
         ),
     ]
 )

@@ -27,7 +27,7 @@ cp "$BINARY" "${BUNDLE}/Contents/MacOS/${APP_NAME}"
 # Na app lêem-se daqui; em `swift run` e nos testes, do bundle de recursos do SwiftPM.
 cp -R Sources/PowerFlowCore/Resources/*.lproj "${BUNDLE}/Contents/Resources/"
 
-# O ícone da app: o SVG do handoff, exportado nos tamanhos que o `iconutil` pede.
+# O ícone da app: o SVG de brand/, exportado nos tamanhos que o `iconutil` pede.
 # Precisa de `rsvg-convert` (brew install librsvg).
 echo "==> A gerar o ícone"
 command -v rsvg-convert >/dev/null || { echo "Falhou: falta o rsvg-convert (brew install librsvg)"; exit 1; }

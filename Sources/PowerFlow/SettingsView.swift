@@ -410,7 +410,7 @@ private struct AboutSection: View {
     }
 
     var body: some View {
-        // «Código-fonte» fica escondido até haver URL (D3).
+        // «Código-fonte» fica escondido até haver URL do repositório.
         Section {
             LabeledContent {
                 Text(version).font(PFFont.body).monospacedDigit()
