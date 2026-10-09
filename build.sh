@@ -9,7 +9,7 @@ cd "$(dirname "$0")"
 
 APP_NAME="PowerFlow"
 BUNDLE="${APP_NAME}.app"
-VERSION="2.0"
+VERSION="2.0.1"
 ICON_SVG="brand/AppIcon.svg"
 
 echo "==> A compilar (release)"
