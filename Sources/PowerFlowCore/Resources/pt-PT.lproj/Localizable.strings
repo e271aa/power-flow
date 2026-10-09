@@ -162,9 +162,8 @@
 "s_lang_val" = "Igual ao sistema (%@)";
 "s_lang_btn" = "Idioma e região…";
 "s_bar" = "Barra de menus";
-"s_bar_icon" = "Só ícone";
-"s_bar_iw" = "Ícone e watts";
-"s_bar_ip" = "Ícone e %";
+"s_bar_battery" = "Só bateria";
+"s_bar_bw" = "Bateria e watts";
 "s_bar_w" = "Só watts";
 "s_measure" = "Medição";
 "s_rate" = "Frequência de amostragem";
@@ -190,8 +189,7 @@
 "s_login_pending" = "Falta aprovar em Definições do Sistema › Geral › Itens de início de sessão.";
 "s_login_open" = "Abrir…";
 "s_login_error" = "Não foi possível mudar o arranque com a sessão.";
-"s_bar_ip_off" = "Este Mac não tem bateria";
-"tt_status_off" = "PowerFlow — sensores indisponíveis";
+"s_bar_nobattery" = "Este Mac não tem bateria: a barra mostra os watts.";
 
 /* ── Notificações ── */
 "n_assist_t" = "A bateria está a ajudar o adaptador";
@@ -207,6 +205,30 @@
 "n_weak_b" = "O adaptador de %1$@ não chega para carregar enquanto o Mac gasta %2$@.";
 "n_now" = "agora";
 
-/* ── Provisórios da v1 (saem nas Fases 5 e 6, quando as vistas forem refeitas) ── */
+/* ── Item da barra de menus: dica e VoiceOver ── */
+/* args: w (watts), p (percentagem) */
+"tt_bar" = "PowerFlow · O Mac está a gastar %1$@ · Bateria a %2$@";
+/* args: w, p */
+"tt_bar_charging" = "PowerFlow · O Mac está a gastar %1$@ · Bateria a %2$@, a carregar";
 /* args: w */
-"tt_status" = "PowerFlow — %@ consumidos";
+"tt_bar_nobattery" = "PowerFlow · O Mac está a gastar %@";
+/* args: p */
+"tt_bar_settling" = "PowerFlow · A medir o consumo… · Bateria a %@";
+"tt_bar_settling_nobattery" = "PowerFlow · A medir o consumo…";
+/* args: p */
+"tt_bar_off" = "PowerFlow · Sem leitura do consumo · Bateria a %@";
+"tt_bar_off_nobattery" = "PowerFlow · Sem leitura do consumo";
+"ax_bar_label" = "PowerFlow";
+/* args: w (inteiro), p (inteiro) */
+"ax_bar_value" = "%1$d watts, bateria a %2$d por cento";
+/* args: w, p */
+"ax_bar_value_charging" = "%1$d watts, bateria a %2$d por cento, a carregar";
+/* args: w */
+"ax_bar_value_nobattery" = "%d watts";
+/* args: p */
+"ax_bar_value_settling" = "A medir o consumo, bateria a %d por cento";
+"ax_bar_value_settling_nobattery" = "A medir o consumo";
+/* args: p */
+"ax_bar_value_off" = "Consumo indisponível, bateria a %d por cento";
+"ax_bar_value_off_nobattery" = "Consumo indisponível";
+"ax_bar_help" = "Abre o painel do PowerFlow.";

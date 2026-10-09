@@ -16,15 +16,16 @@ final class SettingsTests: XCTestCase {
 
     func testOmissoesSaoAsDoHandoff() {
         let defaults = freshDefaults()
-        XCTAssertEqual(AppSettings.barMode(defaults), .iconWatts)
+        XCTAssertEqual(AppSettings.barMode(defaults), .batteryWatts)
         XCTAssertEqual(AppSettings.sampleRate(defaults), .normal)
+        XCTAssertNil(defaults.string(forKey: "pf.barMode"), "a omissão não se escreve")
     }
 
     func testAsEscolhasPersistemPelasChavesDoHandoff() {
         let defaults = freshDefaults()
-        defaults.set("iconPercent", forKey: "pf.barMode")
+        defaults.set("battery", forKey: "pf.barMode")
         defaults.set("high", forKey: "pf.sampleRate")
-        XCTAssertEqual(AppSettings.barMode(defaults), .iconPercent)
+        XCTAssertEqual(AppSettings.barMode(defaults), .battery)
         XCTAssertEqual(AppSettings.sampleRate(defaults), .high)
         // O que a vista escreve é o que o item lê.
         XCTAssertEqual(AppSettings.barModeKey, "pf.barMode")
@@ -35,8 +36,20 @@ final class SettingsTests: XCTestCase {
         let defaults = freshDefaults()
         defaults.set("lixo", forKey: "pf.barMode")
         defaults.set("lixo", forKey: "pf.sampleRate")
-        XCTAssertEqual(AppSettings.barMode(defaults), .iconWatts)
+        XCTAssertEqual(AppSettings.barMode(defaults), .batteryWatts)
         XCTAssertEqual(AppSettings.sampleRate(defaults), .normal)
+    }
+
+    /// Quem tinha cada modo da 2.0 fica com o previsto, e o valor novo fica escrito.
+    func testOsModosDa20MigramNaPrimeiraLeitura() {
+        let expected: [(String, BarMode)] = [("icon", .battery), ("iconWatts", .batteryWatts),
+                                             ("iconPercent", .battery), ("watts", .watts)]
+        for (old, new) in expected {
+            let defaults = freshDefaults()
+            defaults.set(old, forKey: "pf.barMode")
+            XCTAssertEqual(AppSettings.barMode(defaults), new, "«\(old)»")
+            XCTAssertEqual(defaults.string(forKey: "pf.barMode"), new.rawValue, "«\(old)» fica escrito como «\(new.rawValue)»")
+        }
     }
 
     func testFrequenciaDeAmostragem() {
@@ -45,47 +58,109 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(SampleRate.high.fastHz, 10)
     }
 
-    // MARK: - Título
+    // MARK: - Item da barra
 
-    private func snapshot(watts: Double?, percent: Int = 80, battery: Bool = true) -> PowerSnapshot {
+    private let thin = BarItem.narrowSpace
+
+    private func snapshot(watts: Double?, percent: Int = 80, battery: Bool = true,
+                          charging: Bool = false, plugged: Bool = true, settled: Bool = true) -> PowerSnapshot {
         var s = PowerSnapshot()
         s.systemTotal = watts
         s.battery.isPresent = battery
         s.battery.percentage = percent
+        s.battery.isCharging = charging
+        s.battery.isExternalConnected = plugged
+        s.isSettled = settled
         return s
     }
 
-    func testOsQuatroModos() {
-        XCTAssertEqual(BarTitle.content(mode: .icon, hasBattery: true), .empty)
-        XCTAssertEqual(BarTitle.content(mode: .iconWatts, hasBattery: true), .watts)
-        XCTAssertEqual(BarTitle.content(mode: .watts, hasBattery: true), .watts)
-        XCTAssertEqual(BarTitle.content(mode: .iconPercent, hasBattery: true), .percent)
-        XCTAssertTrue(BarMode.icon.showsIcon)
-        XCTAssertTrue(BarMode.iconWatts.showsIcon)
-        XCTAssertTrue(BarMode.iconPercent.showsIcon)
-        XCTAssertFalse(BarMode.watts.showsIcon, "«Só watts» não tem ícone")
+    private func item(_ s: PowerSnapshot, mode: BarMode = .batteryWatts, sensors: Bool = true) -> BarItem {
+        BarItem(mode: mode, snapshot: s, sensorsAvailable: sensors)
     }
 
-    func testSemBateriaAPercentagemCaiNosWatts() {
-        XCTAssertEqual(BarTitle.content(mode: .iconPercent, hasBattery: false), .watts)
+    func testOsTresModos() {
+        XCTAssertEqual(BarItem.content(mode: .battery, hasBattery: true), .battery)
+        XCTAssertEqual(BarItem.content(mode: .batteryWatts, hasBattery: true), .batteryWatts)
+        XCTAssertEqual(BarItem.content(mode: .watts, hasBattery: true), .watts)
+        XCTAssertTrue(BarMode.battery.showsBattery)
+        XCTAssertTrue(BarMode.batteryWatts.showsBattery)
+        XCTAssertFalse(BarMode.watts.showsBattery, "«Só watts» não tem bateria")
     }
 
-    func testTextoDoTitulo() {
-        let s = snapshot(watts: 36.4)
-        XCTAssertEqual(BarTitle.text(.watts, snapshot: s, language: "pt-PT"), "36\(nb)W")
-        XCTAssertEqual(BarTitle.text(.percent, snapshot: s, language: "pt-PT"), "80\(nb)%")
-        XCTAssertEqual(BarTitle.text(.empty, snapshot: s, language: "pt-PT"), "")
+    /// E4: num Mac sem bateria não se desenha bateria, em nenhum modo.
+    func testSemBateriaTudoCaiNosWatts() {
+        for mode in BarMode.allCases {
+            XCTAssertEqual(item(snapshot(watts: 9, battery: false), mode: mode).content, .watts, "\(mode)")
+        }
+        XCTAssertFalse(item(snapshot(watts: 9, battery: false, charging: true)).isCharging)
+    }
+
+    func testOsWattsSaoInteirosComEspacoFino() {
+        XCTAssertEqual(item(snapshot(watts: 15.4)).wattsText(language: "pt-PT"), "15\(thin)W")
+        XCTAssertEqual(item(snapshot(watts: 119.6)).wattsText(language: "en"), "120\(thin)W")
+        XCTAssertEqual(item(snapshot(watts: 4.6)).reading, .watts(5))
     }
 
     func testSemLeituraNaoHaZeroInventado() {
-        XCTAssertEqual(BarTitle.text(.watts, snapshot: snapshot(watts: nil), language: "pt-PT"), "—")
+        XCTAssertEqual(item(snapshot(watts: nil)).reading, .unavailable)
+        XCTAssertEqual(item(snapshot(watts: 15), sensors: false).reading, .unavailable)
+        XCTAssertEqual(item(snapshot(watts: nil)).wattsText(language: "pt-PT"), "—")
     }
 
-    func testDicaSemSensores() {
-        XCTAssertEqual(BarTitle.toolTip(snapshot: snapshot(watts: nil), sensorsAvailable: false, language: "pt-PT"),
-                       "PowerFlow — sensores indisponíveis")
-        XCTAssertTrue(BarTitle.toolTip(snapshot: snapshot(watts: 36), sensorsAvailable: true, language: "pt-PT")
-            .contains("36,0\(nb)W"))
+    func testNosPrimeirosSegundosNaoHaNumero() {
+        let settling = item(snapshot(watts: 15, settled: false))
+        XCTAssertEqual(settling.reading, .settling)
+        XCTAssertEqual(settling.wattsText(language: "pt-PT"), "—")
+        // A bateria desenha-se na mesma: a carga vem do IORegistry.
+        XCTAssertEqual(settling.content, .batteryWatts)
+        XCTAssertEqual(settling.percent, 80)
+    }
+
+    /// O raio vem do IORegistry, como no ícone do sistema. A carga em pausa usa a variante normal.
+    func testORaioSoAparecerACarregar() {
+        XCTAssertTrue(item(snapshot(watts: 15, charging: true)).isCharging)
+        XCTAssertFalse(item(snapshot(watts: 15, charging: false)).isCharging, "em pausa, com o cabo")
+        XCTAssertFalse(item(snapshot(watts: 15, charging: true, plugged: false)).isCharging, "em bateria")
+        XCTAssertTrue(item(snapshot(watts: 15, charging: true), sensors: false).isCharging,
+                      "sem sensores o raio continua a saber-se")
+    }
+
+    func testAPercentagemFicaEntre0E100() {
+        XCTAssertEqual(item(snapshot(watts: 15, percent: 104)).percent, 100)
+        XCTAssertEqual(item(snapshot(watts: 15, percent: -3)).percent, 0)
+    }
+
+    func testDica() {
+        let nb = PFFormat.nbsp
+        XCTAssertEqual(item(snapshot(watts: 15.2)).toolTip(language: "pt-PT"),
+                       "PowerFlow · O Mac está a gastar 15\(nb)W · Bateria a 80\(nb)%")
+        XCTAssertEqual(item(snapshot(watts: 15, charging: true)).toolTip(language: "en"),
+                       "PowerFlow · Your Mac is using 15\(nb)W · Battery at 80\(nb)%, charging")
+        XCTAssertEqual(item(snapshot(watts: 9, battery: false)).toolTip(language: "pt-PT"),
+                       "PowerFlow · O Mac está a gastar 9\(nb)W")
+        XCTAssertEqual(item(snapshot(watts: nil)).toolTip(language: "pt-PT"),
+                       "PowerFlow · Sem leitura do consumo · Bateria a 80\(nb)%")
+        XCTAssertEqual(item(snapshot(watts: nil, battery: false)).toolTip(language: "en"),
+                       "PowerFlow · No power reading")
+        XCTAssertEqual(item(snapshot(watts: 15, settled: false)).toolTip(language: "pt-PT"),
+                       "PowerFlow · A medir o consumo… · Bateria a 80\(nb)%")
+    }
+
+    func testVoiceOver() {
+        XCTAssertEqual(item(snapshot(watts: 15)).accessibilityValue(language: "pt-PT"),
+                       "15 watts, bateria a 80 por cento")
+        XCTAssertEqual(item(snapshot(watts: 15, charging: true)).accessibilityValue(language: "en"),
+                       "15 watts, battery at 80 percent, charging")
+        XCTAssertEqual(item(snapshot(watts: 9, battery: false)).accessibilityValue(language: "pt-PT"), "9 watts")
+        XCTAssertEqual(item(snapshot(watts: nil)).accessibilityValue(language: "pt-PT"),
+                       "Consumo indisponível, bateria a 80 por cento")
+    }
+
+    /// O que muda o desenho é a chave inteira; o mesmo instantâneo dá o mesmo item.
+    func testOMesmoInstantaneoDaOMesmoItem() {
+        XCTAssertEqual(item(snapshot(watts: 15.2)), item(snapshot(watts: 14.9)))
+        XCTAssertNotEqual(item(snapshot(watts: 15)), item(snapshot(watts: 15, percent: 81)))
+        XCTAssertNotEqual(item(snapshot(watts: 15)), item(snapshot(watts: 15, charging: true)))
     }
 
     // MARK: - No máximo de 2 em 2 s
@@ -125,6 +200,15 @@ final class SettingsTests: XCTestCase {
         _ = throttle.shown(for: "10 W", at: t0 + 1.5)
         // Passaram 2 s desde a mudança, não desde a última leitura.
         XCTAssertEqual(throttle.shown(for: "11 W", at: t0 + 2), "11 W")
+    }
+
+    /// O valor dos watts segura 2 s; a percentagem e o raio não passam pelo filtro.
+    func testOFiltroTambemServeAsLeituras() {
+        var throttle = BarTitleThrottle()
+        let t0 = Date(timeIntervalSince1970: 1_000)
+        XCTAssertEqual(throttle.shown(for: BarItem.Reading.watts(15), at: t0), .watts(15))
+        XCTAssertEqual(throttle.shown(for: BarItem.Reading.watts(16), at: t0 + 1), .watts(15))
+        XCTAssertEqual(throttle.shown(for: BarItem.Reading.unavailable, at: t0 + 2), .unavailable)
     }
 
     func testMudarDeModoPassaLogo() {

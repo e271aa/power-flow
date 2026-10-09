@@ -1,72 +1,147 @@
 import Foundation
 
-/// O título do item da barra de menus: o que se escreve e com que frequência
-/// pode mudar.
+/// O que o item da barra de menus mostra, como função do instantâneo.
 ///
-/// Como o `PanelCopy`: o controlador do item não formata nem decide; pede o
-/// texto e a regra de quando o mostrar.
-public enum BarTitle {
-    /// O que o título mostra, depois de ter em conta o Mac. «Ícone e %» num Mac
-    /// sem bateria não tem percentagem para mostrar: cai nos watts.
-    public enum Content: Equatable, Sendable {
-        case empty, watts, percent
+/// Como o `PanelCopy`: o controlador do item não formata nem decide; recebe
+/// o que desenhar, a dica e o valor do VoiceOver. A bateria e os watts são
+/// uma só imagem (`MenuBarIcon`), por isso não há título no botão.
+public struct BarItem: Hashable, Sendable {
+    /// O que a imagem leva, depois de ter em conta o Mac: sem bateria, tudo
+    /// cai em «Só watts» (o valor guardado não muda).
+    public enum Content: Hashable, Sendable {
+        case battery, batteryWatts, watts
+    }
+
+    /// A leitura do consumo que o item mostra.
+    public enum Reading: Hashable, Sendable {
+        /// Watts inteiros.
+        case watts(Int)
+        /// Os primeiros segundos, antes de as médias estabilizarem.
+        case settling
+        /// Sem leitura dos sensores.
+        case unavailable
+    }
+
+    public let content: Content
+    /// 0 a 100. Vem do IORegistry: não depende dos sensores.
+    public let percent: Int
+    /// O raio. Também vem do IORegistry, como no ícone do sistema: a carga em
+    /// pausa, com o cabo ligado, usa a variante normal.
+    public let isCharging: Bool
+    public let hasBattery: Bool
+    public var reading: Reading
+
+    /// Um item com valores fixos: os mosaicos das Definições e a pré-visualização.
+    public init(content: Content, percent: Int, isCharging: Bool, hasBattery: Bool = true, reading: Reading) {
+        self.content = content
+        self.percent = min(max(percent, 0), 100)
+        self.isCharging = isCharging
+        self.hasBattery = hasBattery
+        self.reading = reading
     }
 
     public static func content(mode: BarMode, hasBattery: Bool) -> Content {
+        guard hasBattery else { return .watts }
         switch mode {
-        case .icon: .empty
-        case .iconWatts, .watts: .watts
-        case .iconPercent: hasBattery ? .percent : .watts
+        case .battery: return .battery
+        case .batteryWatts: return .batteryWatts
+        case .watts: return .watts
         }
     }
 
-    /// «36 W» (inteiro) ou «80 %», com espaço não separável. Sem leitura do
-    /// consumo, um travessão: nunca «0 W», que seria uma medição inventada.
-    public static func text(_ content: Content, snapshot: PowerSnapshot,
-                            language: String = L10n.language) -> String {
+    public init(mode: BarMode, snapshot: PowerSnapshot, sensorsAvailable: Bool) {
+        let battery = snapshot.battery
+        hasBattery = battery.isPresent
+        content = Self.content(mode: mode, hasBattery: battery.isPresent)
+        percent = min(max(battery.percentage, 0), 100)
+        isCharging = battery.isPresent && battery.isCharging && snapshot.source == .adapter
+        reading = Self.reading(snapshot: snapshot, sensorsAvailable: sensorsAvailable)
+    }
+
+    /// Sem leitura, ou nos primeiros segundos, não há número: nunca «0 W»,
+    /// que seria uma medição inventada.
+    public static func reading(snapshot: PowerSnapshot, sensorsAvailable: Bool) -> Reading {
+        guard sensorsAvailable, let total = snapshot.systemTotal else { return .unavailable }
+        guard snapshot.isSettled else { return .settling }
+        return .watts(Int(max(total, 0).rounded()))
+    }
+
+    // MARK: - Texto
+
+    /// Espaço fino inseparável, só na barra: poupa largura ao «W».
+    public static let narrowSpace = "\u{202F}"
+
+    /// «15 W», ou «—» sem número.
+    public func wattsText(language: String = L10n.language) -> String {
+        guard case .watts(let value) = reading else { return "—" }
         let format = PFFormat(locale: Locale(identifier: language))
-        switch content {
-        case .empty:
-            return ""
-        case .watts:
-            return snapshot.systemTotal.map { format.watts($0, decimals: 0) } ?? "—"
-        case .percent:
-            return format.percent(snapshot.battery.percentage)
+        return format.wattsValue(Double(value), decimals: 0) + Self.narrowSpace + "W"
+    }
+
+    /// O texto mais largo que o lugar dos watts tem de levar, para a largura
+    /// do item não mudar com o valor. Com algarismos tabulares, qualquer
+    /// número de três algarismos mede o mesmo.
+    public static let widestWatts = "188" + narrowSpace + "W"
+
+    /// A dica do item: o que ele mostra, por extenso.
+    public func toolTip(language: String = L10n.language) -> String {
+        let format = PFFormat(locale: Locale(identifier: language))
+        let pct = format.percent(percent)
+        func string(_ key: String, _ args: [CVarArg] = []) -> String {
+            L10n.string(key, language: language, args: args)
+        }
+        switch (reading, hasBattery) {
+        case (.watts(let value), true):
+            let watts = format.watts(Double(value), decimals: 0)
+            return string(isCharging ? "tt_bar_charging" : "tt_bar", [watts, pct])
+        case (.watts(let value), false):
+            return string("tt_bar_nobattery", [format.watts(Double(value), decimals: 0)])
+        case (.settling, true): return string("tt_bar_settling", [pct])
+        case (.settling, false): return string("tt_bar_settling_nobattery")
+        case (.unavailable, true): return string("tt_bar_off", [pct])
+        case (.unavailable, false): return string("tt_bar_off_nobattery")
         }
     }
 
-    /// A dica do item, que diz o que o título diz mais o que ele é.
-    public static func toolTip(snapshot: PowerSnapshot, sensorsAvailable: Bool,
-                               language: String = L10n.language) -> String {
-        guard sensorsAvailable, let total = snapshot.systemTotal else {
-            return L10n.string("tt_status_off", language: language)
+    /// O valor que o VoiceOver lê. Muda ao mesmo ritmo do desenho.
+    public func accessibilityValue(language: String = L10n.language) -> String {
+        func string(_ key: String, _ args: [CVarArg] = []) -> String {
+            L10n.string(key, language: language, args: args)
         }
-        return L10n.string("tt_status", language: language,
-                           args: [PFFormat(locale: Locale(identifier: language)).watts(total)])
+        switch (reading, hasBattery) {
+        case (.watts(let value), true):
+            return string(isCharging ? "ax_bar_value_charging" : "ax_bar_value", [value, percent])
+        case (.watts(let value), false): return string("ax_bar_value_nobattery", [value])
+        case (.settling, true): return string("ax_bar_value_settling", [percent])
+        case (.settling, false): return string("ax_bar_value_settling_nobattery")
+        case (.unavailable, true): return string("ax_bar_value_off", [percent])
+        case (.unavailable, false): return string("ax_bar_value_off_nobattery")
+        }
     }
 }
 
-/// Segura o título para ele mudar, no máximo, de 2 em 2 s.
+/// Segura o que o item mostra para ele mudar, no máximo, de 2 em 2 s.
 ///
-/// O item da barra redesenha-se a cada mudança e empurra os vizinhos quando a
-/// largura varia; um consumo que oscila a 1 Hz faria o título tremer. O texto
-/// pedido vai mudando; o mostrado só o acompanha passados 2 s da última
-/// mudança. As ordens do utilizador (outro modo) passam logo.
+/// O item da barra redesenha-se a cada mudança; um consumo que oscila a 1 Hz
+/// faria o número tremer. O valor pedido vai mudando; o mostrado só o
+/// acompanha passados 2 s da última mudança. As ordens do utilizador (outro
+/// modo) passam logo.
 public struct BarTitleThrottle {
     public static let minimumInterval: TimeInterval = 2
 
-    public private(set) var shown: String?
+    private var current: AnyHashable?
     private var changedAt: Date?
 
     public init() {}
 
-    /// O que mostrar agora, tendo `wanted` como o texto atual.
-    public mutating func shown(for wanted: String, at now: Date, immediately: Bool = false) -> String {
-        if let current = shown, let changedAt, !immediately {
-            if current == wanted { return current }
-            if now.timeIntervalSince(changedAt) < Self.minimumInterval { return current }
+    /// O que mostrar agora, tendo `wanted` como o valor atual.
+    public mutating func shown<Value: Hashable>(for wanted: Value, at now: Date,
+                                                immediately: Bool = false) -> Value {
+        if let shown = current as? Value, let changedAt, !immediately {
+            if shown == wanted { return shown }
+            if now.timeIntervalSince(changedAt) < Self.minimumInterval { return shown }
         }
-        shown = wanted
+        current = wanted
         changedAt = now
         return wanted
     }

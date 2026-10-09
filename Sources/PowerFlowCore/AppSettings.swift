@@ -1,12 +1,25 @@
 import Foundation
 
-/// O que se mostra ao lado do ícone na barra de menus. Guardado em `pf.barMode`.
+/// O que o item da barra de menus mostra. Guardado em `pf.barMode`.
 public enum BarMode: String, CaseIterable, Sendable {
-    case icon, iconWatts, iconPercent, watts
+    case battery, batteryWatts, watts
 
-    public static let `default` = BarMode.iconWatts
+    public static let `default` = BarMode.batteryWatts
 
-    public var showsIcon: Bool { self != .watts }
+    public var showsBattery: Bool { self != .watts }
+
+    /// Os quatro modos da 2.0 passam aos três de agora. «Só ícone» fica com a
+    /// bateria sozinha; «Ícone e %» também, porque a percentagem já está dentro
+    /// dela. Um valor que não se conhece vale a omissão.
+    public static func migrating(_ raw: String?) -> BarMode {
+        switch raw {
+        case "icon", "iconPercent": .battery
+        case "iconWatts": .batteryWatts
+        default: raw.flatMap(BarMode.init(rawValue:)) ?? .default
+        }
+    }
+
+    static let legacyValues: Set<String> = ["icon", "iconWatts", "iconPercent"]
 }
 
 /// Quantas vezes por segundo se lê o SMC com o painel aberto. Guardado em
@@ -46,8 +59,15 @@ public enum AppSettings {
     public static let alertTempLimitKey = "pf.alert.tempLimit"
     public static let alertWeakKey = "pf.alert.weak"
 
+    /// O modo guardado. Um valor da 2.0 é migrado e o novo fica escrito logo
+    /// na primeira leitura, para as Definições já o mostrarem.
     public static func barMode(_ defaults: UserDefaults = .standard) -> BarMode {
-        defaults.string(forKey: barModeKey).flatMap(BarMode.init(rawValue:)) ?? .default
+        let raw = defaults.string(forKey: barModeKey)
+        let mode = BarMode.migrating(raw)
+        if let raw, BarMode.legacyValues.contains(raw) {
+            defaults.set(mode.rawValue, forKey: barModeKey)
+        }
+        return mode
     }
 
     public static func sampleRate(_ defaults: UserDefaults = .standard) -> SampleRate {

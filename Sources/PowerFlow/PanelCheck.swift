@@ -173,25 +173,32 @@ extension StatusItemController {
             defaults.set("watts", forKey: AppSettings.barModeKey)
         }
         after(navigated + 4.6) {
-            let bar = self.barButtonState
+            let bar = self.shownBar
             check(self.monitor?.fastHz == 10, "Definições: «Alta» põe o painel aberto a 10 Hz")
-            check(!bar.hasImage && bar.title.contains("W"), "Definições: «Só watts» tira o ícone (título «\(bar.title)»)")
+            check(bar?.content == .watts && self.barLength == MenuBarIcon.itemLength(for: .watts),
+                  "Definições: «Só watts» mostra só os watts (\(self.barLength) pt)")
             defaults.set("low", forKey: AppSettings.sampleRateKey)
             defaults.set("icon", forKey: AppSettings.barModeKey)
         }
         after(navigated + 5.0) {
-            let bar = self.barButtonState
+            let bar = self.shownBar
+            let hasBattery = self.monitor?.snapshot.battery.isPresent == true
             check(self.monitor?.isSamplingFast == false, "Definições: «Baixa» deixa o painel aberto a 1 Hz")
-            check(bar.hasImage && bar.title.isEmpty, "Definições: «Só ícone» tira o título")
+            // «Só ícone», da 2.0, passa a «Só bateria» e fica escrito assim.
+            check(defaults.string(forKey: AppSettings.barModeKey) == "battery",
+                  "Definições: «icon» da 2.0 fica «battery»")
+            check(bar?.content == (hasBattery ? .battery : .watts),
+                  "Definições: «Só bateria» mostra a bateria sozinha (\(self.barLength) pt)")
             defaults.set("normal", forKey: AppSettings.sampleRateKey)
-            defaults.set("iconPercent", forKey: AppSettings.barModeKey)
+            defaults.set("batteryWatts", forKey: AppSettings.barModeKey)
         }
         after(navigated + 5.4) {
-            let bar = self.barButtonState
-            check(self.monitor?.fastHz == 2, "Definições: «Normal» põe o painel aberto a 2 Hz")
+            let bar = self.shownBar
             let hasBattery = self.monitor?.snapshot.battery.isPresent == true
-            check(bar.hasImage && bar.title.hasSuffix(hasBattery ? "%" : "W"),
-                  "Definições: «Ícone e %» mostra «\(bar.title)»")
+            check(self.monitor?.fastHz == 2, "Definições: «Normal» põe o painel aberto a 2 Hz")
+            check(bar?.content == (hasBattery ? .batteryWatts : .watts)
+                  && self.barLength == MenuBarIcon.itemLength(for: bar?.content ?? .watts) && self.barLength <= 72,
+                  "Definições: «Bateria e watts» mostra «\(bar?.wattsText() ?? "")» ao lado da bateria (\(self.barLength) pt)")
             if let savedRate { defaults.set(savedRate, forKey: AppSettings.sampleRateKey) } else { defaults.removeObject(forKey: AppSettings.sampleRateKey) }
             if let savedMode { defaults.set(savedMode, forKey: AppSettings.barModeKey) } else { defaults.removeObject(forKey: AppSettings.barModeKey) }
         }

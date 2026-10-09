@@ -163,12 +163,21 @@ private struct BarModeSection: View {
 
     var body: some View {
         Section {
-            HStack(alignment: .top, spacing: 10) {
-                ForEach(BarMode.allCases, id: \.self) { mode in
-                    BarModeTile(mode: mode, isSelected: selection == mode.rawValue,
-                                isAvailable: hasBattery || mode != .iconPercent) {
-                        selection = mode.rawValue
+            VStack(alignment: .leading, spacing: PFSpace.s) {
+                HStack(alignment: .top, spacing: 10) {
+                    ForEach(BarMode.allCases, id: \.self) { mode in
+                        BarModeTile(mode: mode, isSelected: selection == mode.rawValue,
+                                    isAvailable: hasBattery || !mode.showsBattery) {
+                            selection = mode.rawValue
+                        }
                     }
+                }
+                // Num Mac sem bateria a barra mostra os watts, seja qual for o modo.
+                if !hasBattery {
+                    Text(L10n.string("s_bar_nobattery"))
+                        .font(PFFont.secondary)
+                        .foregroundStyle(PFColor.fg2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .padding(.vertical, PFSpace.xs)
@@ -178,7 +187,7 @@ private struct BarModeSection: View {
     }
 }
 
-/// Um mosaico: o item da barra como ficaria, com o rótulo por baixo.
+/// Um mosaico: o item da barra como fica, a 1:1, com o rótulo por baixo.
 /// O selecionado leva anel de 2 pt e o rótulo a semibold: a cor não está sozinha.
 private struct BarModeTile: View {
     let mode: BarMode
@@ -188,42 +197,34 @@ private struct BarModeTile: View {
 
     private var label: String {
         let key: String = switch mode {
-        case .icon: "s_bar_icon"
-        case .iconWatts: "s_bar_iw"
-        case .iconPercent: "s_bar_ip"
+        case .battery: "s_bar_battery"
+        case .batteryWatts: "s_bar_bw"
         case .watts: "s_bar_w"
         }
         return L10n.string(key)
     }
 
-    /// O número do exemplo, com a locale e o espaço não separável de sempre.
-    private var sample: String? {
-        let format = PFFormat(locale: L10n.locale)
-        switch mode {
-        case .icon: return nil
-        case .iconWatts, .watts: return format.watts(36, decimals: 0)
-        case .iconPercent: return format.percent(80)
-        }
+    /// O item com os valores do exemplo: 80 %, 15 W, sem carregar.
+    private var sample: NSImage {
+        MenuBarIcon.image(BarItem(content: BarItem.content(mode: mode, hasBattery: true),
+                                  percent: 80, isCharging: false, reading: .watts(15)))
     }
 
     var body: some View {
         Button(action: action) {
             VStack(spacing: 6) {
-                HStack(spacing: 5) {
-                    if mode.showsIcon {
-                        Image(nsImage: MenuBarIcon.image(.pluggedIn)).renderingMode(.template)
+                Image(nsImage: sample)
+                    .renderingMode(.template)
+                    .foregroundStyle(PFColor.fg)
+                    .frame(maxWidth: .infinity, minHeight: 30, maxHeight: 30)
+                    .background(PFColor.bar, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .overlay {
+                        if isSelected {
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .strokeBorder(PFColor.accent, lineWidth: 2)
+                        }
                     }
-                    if let sample { Text(sample).font(PFFont.body).monospacedDigit() }
-                }
-                .foregroundStyle(PFColor.fg)
-                .frame(maxWidth: .infinity, minHeight: 30, maxHeight: 30)
-                .background(PFColor.bar, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-                .overlay {
-                    if isSelected {
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .strokeBorder(PFColor.accent, lineWidth: 2)
-                    }
-                }
+                    .accessibilityHidden(true)
                 Text(label)
                     .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
                     .foregroundStyle(isAvailable ? PFColor.fg : PFColor.fg2)
@@ -235,9 +236,9 @@ private struct BarModeTile: View {
         }
         .buttonStyle(.plain)
         .disabled(!isAvailable)
-        .help(isAvailable ? "" : L10n.string("s_bar_ip_off"))
+        .help(isAvailable ? "" : L10n.string("s_bar_nobattery"))
         .accessibilityLabel(label)
-        .accessibilityHint(isAvailable ? "" : L10n.string("s_bar_ip_off"))
+        .accessibilityHint(isAvailable ? "" : L10n.string("s_bar_nobattery"))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .frame(maxWidth: .infinity)
     }
@@ -427,7 +428,7 @@ final class SettingsWindow: NSObject, NSWindowDelegate {
     static let shared = SettingsWindow()
 
     private var window: NSWindow?
-    /// Dá a bateria do Mac, para o mosaico «Ícone e %».
+    /// Diz se o Mac tem bateria, para os mosaicos da barra.
     weak var monitor: PowerMonitor?
     /// Fixa se o Mac tem bateria, sem monitor (`--window --view settings --state`).
     var hasBatteryOverride: Bool?

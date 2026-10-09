@@ -162,9 +162,8 @@
 "s_lang_val" = "Same as system (%@)";
 "s_lang_btn" = "Language & Region…";
 "s_bar" = "Menu bar";
-"s_bar_icon" = "Icon only";
-"s_bar_iw" = "Icon and watts";
-"s_bar_ip" = "Icon and %";
+"s_bar_battery" = "Battery only";
+"s_bar_bw" = "Battery and watts";
 "s_bar_w" = "Watts only";
 "s_measure" = "Measurement";
 "s_rate" = "Sampling rate";
@@ -190,8 +189,7 @@
 "s_login_pending" = "Needs approval in System Settings › General › Login Items.";
 "s_login_open" = "Open…";
 "s_login_error" = "Couldn't change launch at login.";
-"s_bar_ip_off" = "This Mac has no battery";
-"tt_status_off" = "PowerFlow — sensors unavailable";
+"s_bar_nobattery" = "This Mac has no battery, so the menu bar shows watts.";
 
 /* ── Notificações ── */
 "n_assist_t" = "The battery is backing up the adapter";
@@ -207,6 +205,30 @@
 "n_weak_b" = "The %1$@ adapter can’t charge while your Mac uses %2$@.";
 "n_now" = "now";
 
-/* ── v1 placeholders (removed in Phases 4 and 5, when the views are rebuilt) ── */
+/* ── Menu bar item: tooltip and VoiceOver ── */
+/* args: w (watts), p (percentage) */
+"tt_bar" = "PowerFlow · Your Mac is using %1$@ · Battery at %2$@";
+/* args: w, p */
+"tt_bar_charging" = "PowerFlow · Your Mac is using %1$@ · Battery at %2$@, charging";
 /* args: w */
-"tt_status" = "PowerFlow — %@ used";
+"tt_bar_nobattery" = "PowerFlow · Your Mac is using %@";
+/* args: p */
+"tt_bar_settling" = "PowerFlow · Measuring power use… · Battery at %@";
+"tt_bar_settling_nobattery" = "PowerFlow · Measuring power use…";
+/* args: p */
+"tt_bar_off" = "PowerFlow · No power reading · Battery at %@";
+"tt_bar_off_nobattery" = "PowerFlow · No power reading";
+"ax_bar_label" = "PowerFlow";
+/* args: w (integer), p (integer) */
+"ax_bar_value" = "%1$d watts, battery at %2$d percent";
+/* args: w, p */
+"ax_bar_value_charging" = "%1$d watts, battery at %2$d percent, charging";
+/* args: w */
+"ax_bar_value_nobattery" = "%d watts";
+/* args: p */
+"ax_bar_value_settling" = "Measuring power use, battery at %d percent";
+"ax_bar_value_settling_nobattery" = "Measuring power use";
+/* args: p */
+"ax_bar_value_off" = "Power use unavailable, battery at %d percent";
+"ax_bar_value_off_nobattery" = "Power use unavailable";
+"ax_bar_help" = "Opens the PowerFlow panel.";

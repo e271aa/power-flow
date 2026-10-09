@@ -42,12 +42,14 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
     var forceReduceMotion = false
     /// Com o `--open-panel`, abre já na vista «Consumo por app».
     var openAppsOnOpen = false
-    /// Escreve cada mudança do título com a hora, para medir o intervalo. Serve o `--log-title`.
+    /// Escreve cada mudança do item com a hora, para medir o intervalo. Serve o `--log-title`.
     var logTitleChanges = false
 
     private var barMode = AppSettings.barMode()
-    private var titleThrottle = BarTitleThrottle()
-    private var shownIcon: MenuBarIcon.State?
+    /// Segura os watts para mudarem no máximo de 2 em 2 s.
+    private var readingThrottle = BarTitleThrottle()
+    /// O que o item mostra. A imagem só se refaz quando isto muda.
+    private(set) var shownBar: BarItem?
     private var defaultsObserver: NSObjectProtocol?
 
     /// Os alertas correm sobre o instantâneo de 1 Hz, com o painel aberto ou fechado.
@@ -65,15 +67,17 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
         self.monitor = monitor
         terminationSignal = TerminationSignal { NSApp.terminate(nil) }
 
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        // Comprimento fixo: o item só muda de largura quando muda o modo.
+        let content = BarItem.content(mode: barMode, hasBattery: monitor.snapshot.battery.isPresent)
+        let item = NSStatusBar.system.statusItem(withLength: MenuBarIcon.itemLength(for: content))
         item.button?.target = self
         item.button?.action = #selector(statusItemClicked)
         // O clique direito também chega à ação, para abrir o menu.
         item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
-        // Dígitos de largura fixa: o título não treme quando o número muda.
-        if let button = item.button {
-            button.font = .monospacedDigitSystemFont(ofSize: NSFont.menuBarFont(ofSize: 0).pointSize, weight: .regular)
-        }
+        // A bateria e os watts são uma só imagem, sem título.
+        item.button?.imagePosition = .imageOnly
+        item.button?.setAccessibilityLabel(L10n.string("ax_bar_label"))
+        item.button?.setAccessibilityHelp(L10n.string("ax_bar_help"))
         statusItem = item
 
         SettingsWindow.shared.monitor = monitor
@@ -165,52 +169,32 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
         let mode = AppSettings.barMode()
         if mode != barMode {
             barMode = mode
-            // É uma ordem do utilizador: o título não espera pelos 2 s.
+            // É uma ordem do utilizador: os watts não esperam pelos 2 s.
             refresh(with: monitor.snapshot, immediately: true)
         }
     }
 
     private func refresh(with snapshot: PowerSnapshot, immediately: Bool = false) {
-        guard let button = statusItem?.button, let monitor else { return }
+        guard let item = statusItem, let button = item.button, let monitor else { return }
 
-        // Só se mexe no botão quando o que ele mostra muda. Atribuir o mesmo
-        // título ou a mesma imagem obriga a barra a redesenhar-se na mesma.
-        let content = BarTitle.content(mode: barMode, hasBattery: snapshot.battery.isPresent)
+        var bar = BarItem(mode: barMode, snapshot: snapshot, sensorsAvailable: monitor.isAvailable)
+        // A percentagem e o raio passam logo; os watts seguram 2 s.
+        bar.reading = readingThrottle.shown(for: bar.reading, at: Date(), immediately: immediately)
 
-        if barMode.showsIcon {
-            let state: MenuBarIcon.State = !monitor.isAvailable ? .unavailable
-                : snapshot.source == .adapter ? .pluggedIn : .onBattery
-            if state != shownIcon {
-                button.image = MenuBarIcon.image(state)
-                shownIcon = state
-            }
-            let position: NSControl.ImagePosition = content == .empty ? .imageOnly : .imageLeading
-            if button.imagePosition != position { button.imagePosition = position }
-        } else if shownIcon != nil {
-            button.image = nil
-            button.imagePosition = .noImage
-            shownIcon = nil
+        // Só se mexe no botão quando o que ele mostra muda. Atribuir a mesma
+        // imagem obriga a barra a redesenhar-se na mesma.
+        guard bar != shownBar else { return }
+        let length = MenuBarIcon.itemLength(for: bar.content)
+        if item.length != length { item.length = length }
+        button.image = MenuBarIcon.image(bar)
+        button.toolTip = bar.toolTip()
+        button.setAccessibilityValue(bar.accessibilityValue())
+        shownBar = bar
+        if logTitleChanges {
+            print(String(format: "%.3f item «%@» %d %%%@", Date().timeIntervalSince1970,
+                         bar.wattsText(), bar.percent, bar.isCharging ? " a carregar" : ""))
+            fflush(stdout)
         }
-
-        var title = ""
-        if content == .empty {
-            titleThrottle = BarTitleThrottle()
-        } else {
-            let wanted = BarTitle.text(content, snapshot: snapshot)
-            title = titleThrottle.shown(for: wanted, at: Date(), immediately: immediately)
-        }
-        if button.title != title {
-            button.title = title
-            if logTitleChanges {
-                print(String(format: "%.3f título «%@»", Date().timeIntervalSince1970, title))
-                fflush(stdout)
-            }
-        }
-
-        let toolTip = BarTitle.toolTip(snapshot: snapshot, sensorsAvailable: monitor.isAvailable)
-        if button.toolTip != toolTip { button.toolTip = toolTip }
-        // Sem imagem nem título o item não se anunciava a ninguém.
-        button.setAccessibilityLabel("PowerFlow")
     }
 
     private func checkAlerts(_ snapshot: PowerSnapshot) {
@@ -241,10 +225,8 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
         }
     }
 
-    /// O que o botão da barra mostra, para o `--panel-check`.
-    var barButtonState: (hasImage: Bool, title: String) {
-        (statusItem?.button?.image != nil, statusItem?.button?.title ?? "")
-    }
+    /// O comprimento do item na barra, para o `--panel-check`.
+    var barLength: CGFloat { statusItem?.length ?? 0 }
 
     // MARK: - Menus
 
@@ -381,9 +363,9 @@ final class StatusItemController: NSObject, NSApplicationDelegate, NSPopoverDele
         guard let item = statusItem else { print("  item: NÃO CRIADO"); return }
         print("  item criado      : sim")
         print("  isVisible        : \(item.isVisible)")
-        print("  largura do botão : \(item.button?.frame.width ?? -1) pt")
-        print("  título           : \"\(item.button?.title ?? "")\"")
-        print("  tem imagem       : \(item.button?.image != nil)")
+        print("  largura do botão : \(item.button?.frame.width ?? -1) pt (comprimento \(item.length) pt)")
+        print("  mostra           : \(shownBar.map { "\($0.content) · «\($0.wattsText())» · \($0.percent) %\($0.isCharging ? " a carregar" : "")" } ?? "nada")")
+        print("  tem imagem       : \(item.button?.image != nil) (\(item.button?.image.map { "\($0.size.width) × \($0.size.height)" } ?? "—") pt)")
         // O AppKit dá o item como visível mesmo quando a barra não o mostra
         // (escondido atrás do notch ou por uma app que gere a barra). Onde
         // está a janela dele e se está tapada dizem mais.
