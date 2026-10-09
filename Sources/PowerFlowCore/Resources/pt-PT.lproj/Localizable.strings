@@ -189,6 +189,7 @@
 "s_about" = "Sobre";
 "s_version" = "Versão";
 "s_source" = "Código-fonte";
+"s_source_link" = "GitHub ↗";
 "s_login_pending" = "Falta aprovar em Definições do Sistema › Geral › Itens de início de sessão.";
 "s_login_open" = "Abrir…";
 "s_login_error" = "Não foi possível mudar o arranque com a sessão.";

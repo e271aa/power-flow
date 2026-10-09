@@ -189,6 +189,7 @@
 "s_about" = "About";
 "s_version" = "Version";
 "s_source" = "Source code";
+"s_source_link" = "GitHub ↗";
 "s_login_pending" = "Needs approval in System Settings › General › Login Items.";
 "s_login_open" = "Open…";
 "s_login_error" = "Couldn't change launch at login.";

@@ -410,12 +410,22 @@ private struct AboutSection: View {
     }
 
     var body: some View {
-        // «Código-fonte» fica escondido até haver URL do repositório.
         Section {
             LabeledContent {
                 Text(version).font(PFFont.body).monospacedDigit()
             } label: {
                 Text(L10n.string("s_version")).font(PFFont.body)
+            }
+            .frame(minHeight: PFSpace.rowSettings)
+            LabeledContent {
+                Link(destination: Repository.url) {
+                    Text(L10n.string("s_source_link"))
+                        .font(PFFont.body)
+                        .foregroundStyle(PFColor.blueInk)
+                }
+                .accessibilityLabel(L10n.string("s_source"))
+            } label: {
+                Text(L10n.string("s_source")).font(PFFont.body)
             }
             .frame(minHeight: PFSpace.rowSettings)
         } header: {

@@ -532,10 +532,14 @@ private struct UnavailableView: View {
                     .foregroundStyle(PFColor.fg2)
                     .fixedSize(horizontal: false, vertical: true)
 
-                // «Reportar no GitHub» aparece quando houver URL do repositório.
-                Button(L10n.string("u_copy")) {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(Diagnostics.report(), forType: .string)
+                HStack(spacing: PFSpace.s) {
+                    Button(L10n.string("u_copy")) {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(Diagnostics.report(), forType: .string)
+                    }
+                    Button(L10n.string("u_report")) {
+                        NSWorkspace.shared.open(Repository.newIssueURL)
+                    }
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)

@@ -196,7 +196,8 @@ All logic that can be tested lives in `PowerFlowCore`. The views in
 <img alt="The disk image window: drag PowerFlow onto Applications. If macOS won't open it the first time: System Settings › Privacy & Security › Open Anyway." src="assets/dmg-window.png" width="560">
 </div>
 
-1. Download `power-flow.dmg`.
+1. Download [`power-flow.dmg`](https://github.com/e271aa/power-flow/releases/latest/download/power-flow.dmg).
+   Every version is on the [Releases](https://github.com/e271aa/power-flow/releases) page.
 2. Open it and drag **PowerFlow** onto **Applications**.
 3. Open PowerFlow from Applications. It is signed ad hoc and not notarized, so
    the first time macOS will not open it. Go to **System Settings › Privacy &
