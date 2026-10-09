@@ -124,6 +124,7 @@ struct HistorySection: View {
 
     /// Com o rato, as séries trocam num crossfade de 0,2 s. Pelo teclado (o
     /// controlo com o foco e o espaço) trocam de uma vez (D7b).
+    @MainActor
     private func select(_ period: HistoryPeriod) {
         change(to: period, fades: !PanelNavigation.isKeyboardAction)
     }

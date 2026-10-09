@@ -102,6 +102,7 @@ struct AppsView: View {
         .frame(height: Self.rowHeight)
     }
 
+    @MainActor
     private func appRow(_ row: AppsCopy.Row) -> some View {
         Button {
             guard let pid = row.pid, let app = NSRunningApplication(processIdentifier: pid) else { return }
