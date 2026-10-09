@@ -56,8 +56,18 @@ public enum L10n {
         Bundle.main.bundleURL.pathExtension == "app" ? Bundle.main : Bundle.module
     }
 
-    /// Línguas que a app traz.
-    public static var availableLanguages: [String] { resources.localizations.filter { $0 != "Base" } }
+    /// Línguas que a app traz, com o nome canónico («pt-PT»). O SwiftPM 5.10
+    /// copia `pt-PT.lproj` para o bundle de recursos como `pt-pt.lproj`.
+    public static var availableLanguages: [String] {
+        resources.localizations.filter { $0 != "Base" }.map { Locale.canonicalLanguageIdentifier(from: $0) }
+    }
+
+    /// A pasta `.lproj` de uma língua, com o nome que tem no bundle. O
+    /// `path(forResource:ofType:)` distingue maiúsculas: «pt-PT» não encontra
+    /// `pt-pt.lproj`, e os textos cairiam para a língua do sistema.
+    static func folder(for language: String, among folders: [String]) -> String {
+        folders.first { $0.caseInsensitiveCompare(language) == .orderedSame } ?? language
+    }
 
     /// A língua em uso, como nome de `.lproj` («pt-PT», «en»).
     public static var language: String {
@@ -112,7 +122,8 @@ public enum L10n {
 
     private static func table(for language: String) -> Bundle {
         cache.table(for: language) {
-            guard let path = resources.path(forResource: language, ofType: "lproj"),
+            let name = folder(for: language, among: resources.localizations)
+            guard let path = resources.path(forResource: name, ofType: "lproj"),
                   let bundle = Bundle(path: path) else { return resources }
             return bundle
         }
@@ -120,6 +131,7 @@ public enum L10n {
 
     /// A pasta dos `.lproj` (para o teste de paridade os ler diretamente).
     public static func tableURL(language: String) -> URL? {
-        resources.url(forResource: "Localizable", withExtension: "strings", subdirectory: nil, localization: language)
+        resources.url(forResource: "Localizable", withExtension: "strings", subdirectory: nil,
+                      localization: folder(for: language, among: resources.localizations))
     }
 }

@@ -66,6 +66,15 @@ final class LocalizationTests: XCTestCase {
         XCTAssertGreaterThan(used, 10)
     }
 
+    /// O SwiftPM 5.10 (Xcode 15) copia `pt-PT.lproj` como `pt-pt.lproj`. A
+    /// pasta tem de se encontrar na mesma, ou os textos saem na língua do sistema.
+    func testAPastaDaLinguaEncontraSeSemDistinguirMaiusculas() {
+        XCTAssertEqual(L10n.folder(for: "pt-PT", among: ["en", "pt-pt"]), "pt-pt")
+        XCTAssertEqual(L10n.folder(for: "pt-PT", among: ["en", "pt-PT"]), "pt-PT")
+        XCTAssertEqual(L10n.folder(for: "en", among: ["en", "pt-pt"]), "en")
+        XCTAssertTrue(L10n.availableLanguages.contains("pt-PT"))
+    }
+
     func testEscolhaDaLinguaEArgumentos() {
         defer { L10n.languageOverride = nil }
         L10n.languageOverride = ["en-US"]
