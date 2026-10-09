@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="544.26" height="80" viewBox="-4 4 544.26 80">
+  <title>PowerFlow</title>
+  <g transform="translate(-33.28 -38.44) scale(0.15126)">
+    <g stroke-width="56" stroke-linecap="round">
+      <line x1="317" y1="420" x2="707" y2="420" stroke="#4CC27A"/>
+      <line x1="317" y1="420" x2="512" y2="686" stroke="#4CC27A"/>
+      <line x1="512" y1="686" x2="707" y2="420" stroke="#F2B544"/>
+    </g>
+    <circle cx="317" cy="420" r="97" fill="#52C881"/>
+    <circle cx="707" cy="420" r="113" fill="#5C9BEB"/>
+    <circle cx="512" cy="686" r="97" fill="#F7BC4B"/>
+  </g>
+  <g fill="none" stroke="#1D1D1F" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M120.26 74.5V13.5H132.26A17 17 0 0 1 132.26 47.5H120.26"/>
+    <path d="M167.26 55A19.5 19.5 0 1 0 206.26 55A19.5 19.5 0 1 0 167.26 55Z"/>
+    <path d="M222.26 35.5L232.26 74.5L243.26 41L254.26 74.5L264.26 35.5"/>
+    <path d="M280.26 55H319.26A19.5 19.5 0 1 0 313.55 68.79"/>
+    <path d="M336.26 74.5V55A19.5 19.5 0 0 1 355.76 35.5"/>
+    <path d="M369.76 74.5V13.5H399.76"/>
+    <path d="M369.76 42H394.76"/>
+    <path d="M416.76 13.5V74.5"/>
+    <path d="M433.76 55A19.5 19.5 0 1 0 472.76 55A19.5 19.5 0 1 0 433.76 55Z"/>
+    <path d="M488.76 35.5L498.76 74.5L509.76 41L520.76 74.5L530.76 35.5"/>
+  </g>
+</svg>

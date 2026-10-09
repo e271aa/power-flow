@@ -80,7 +80,20 @@ enum MenuBarIcon {
         case .watts: slot(wattsOnlyFont)
         case .flowWatts: flowWattsX + slot(wattsOnlyFont)
         }
-        return width.rounded(.up)
+        return width.rounded(.up) - trim(content)
+    }
+
+    /// O que se tira à reserva dos watts, para a imagem acabar onde acaba a
+    /// tinta do «W» com três algarismos (medido no `--icon-preview`). A reserva
+    /// deixava 4 pt sem tinta de cada lado com dois algarismos, e a seleção do
+    /// sistema já põe a margem dela. A 13 pt só cabe 1 pt: com 2, o «W» de
+    /// «120 W» perdia 1 pt.
+    private static func trim(_ content: BarItem.Content) -> CGFloat {
+        switch content {
+        case .battery: 0
+        case .batteryWatts: 2
+        case .watts, .flowWatts: 1
+        }
     }
 
     /// O comprimento do item na barra: o da imagem. A seleção do sistema já

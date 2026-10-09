@@ -51,6 +51,12 @@ enum IconPreview {
         all.append(Case(label: "Mac sem bateria · 120 W",
                         item: BarItem(content: .watts, percent: 0, isCharging: false, hasBattery: false,
                                       reading: .watts(120))))
+        // Três algarismos: a imagem acaba na tinta do «W» (MenuBarIcon.trim).
+        all.append(Case(label: "Ícone e watts · 120 W",
+                        item: BarItem(content: .flowWatts, percent: 80, isCharging: false, reading: .watts(120))))
+        all.append(Case(label: "Mac sem bateria · 248 W",
+                        item: BarItem(content: .watts, percent: 0, isCharging: false, hasBattery: false,
+                                      reading: .watts(248))))
         return all
     }
 
