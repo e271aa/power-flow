@@ -1,4 +1,4 @@
-// PFColor.swift — derivado de Tests/PowerFlowCoreTests/Fixtures/powerflow-data.json.
+// PFColor.swift — derivado de tests/fixtures/powerflow-data.json.
 // Valores em Display P3, convertidos de OKLCH. Cada cor resolve claro / escuro / alto contraste
 // pela aparência efetiva, por isso funciona sem Asset Catalog (a app constrói-se só com as CLT).
 // Regra: green / amber / blue (e blue2, rest) NUNCA são texto — para texto usar *Ink.

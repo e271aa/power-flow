@@ -9,7 +9,7 @@ power travels along. The symbol keeps the geometry of the app icon,
 
 | File | Use |
 |---|---|
-| `AppIcon.svg` | The app icon. `build.sh` renders it into `AppIcon.icns` |
+| `AppIcon.svg` | The app icon. `app/build.sh` renders it into `AppIcon.icns` |
 | `icon-1024.png` | The app icon at 1024 × 1024 px |
 | `symbol.svg` | The symbol in colour, on a transparent background |
 | `symbol-mono-black.svg` / `symbol-mono-white.svg` | The symbol in one colour |

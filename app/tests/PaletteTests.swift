@@ -1,18 +1,19 @@
 import XCTest
 
-/// Guarda as cores da paleta. Lê os temas de `Fixtures/powerflow-data.json`,
+/// Guarda as cores da paleta. Lê os temas de `fixtures/powerflow-data.json`,
 /// que é a fonte de verdade (OKLCH), e mede-os com as mesmas fórmulas do validador de paleta
 /// (`validate_palette.js`): ΔE em OKLab ×100, daltonismo simulado com Machado et al. (2009) a 100 %, contraste WCAG.
 final class PaletteTests: XCTestCase {
     private static let themes = ["light", "dark", "hcLight", "hcDark"]
+    /// A pasta `app/`.
     private static let root = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent().deletingLastPathComponent()
 
     private struct OKLCH { let l, c, h, alpha: Double }
     private typealias RGB = [Double]
 
     private func loadThemes() throws -> [String: [String: String]] {
-        let url = Self.root.appendingPathComponent("Tests/PowerFlowCoreTests/Fixtures/powerflow-data.json")
+        let url = Self.root.appendingPathComponent("tests/fixtures/powerflow-data.json")
         let json = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any]
         return try XCTUnwrap(json?["themes"] as? [String: [String: String]])
     }
@@ -162,7 +163,7 @@ final class PaletteTests: XCTestCase {
     /// O `PFColor.swift` corresponde ao JSON, em Display P3. Se alguém mudar um e não o outro, falha aqui.
     func testPFColorCorrespondeAoJSON() throws {
         let themes = try loadThemes()
-        let swift = try String(contentsOf: Self.root.appendingPathComponent("Sources/PowerFlow/PFColor.swift"), encoding: .utf8)
+        let swift = try String(contentsOf: Self.root.appendingPathComponent("sources/powerflow/PFColor.swift"), encoding: .utf8)
         let tuple = #"\(([^)]*)\)"#
         let tokens = try XCTUnwrap(themes["light"]).keys.filter { $0 != "shadow" && $0 != "desk" }
         XCTAssertFalse(tokens.isEmpty)

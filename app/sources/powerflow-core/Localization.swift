@@ -2,7 +2,7 @@ import Foundation
 
 /// Ponto único de acesso aos textos.
 ///
-/// Os `.lproj` moram em `Sources/PowerFlowCore/Resources/`. Dentro do
+/// Os `.lproj` moram em `sources/powerflow-core/resources/`. Dentro do
 /// `PowerFlow.app` o `build.sh` copia-os para `Contents/Resources/` e lêem-se
 /// do bundle principal; em `swift run` e nos testes lêem-se do bundle de
 /// recursos do SwiftPM. A língua é a do sistema (`-AppleLanguages "(en)"`

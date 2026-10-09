@@ -48,11 +48,11 @@ final class LocalizationTests: XCTestCase {
 
     /// Toda a chave usada em `L10n.string("…")` no código existe na tabela.
     func testChavesUsadasNoCodigoExistem() throws {
-        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         let regex = try NSRegularExpression(pattern: "L10n\\.string\\(\"([A-Za-z0-9_]+)\"")
         let pt = try table("pt-PT")
         var used = 0
-        for dir in ["Sources/PowerFlow", "Sources/PowerFlowCore"] {
+        for dir in ["sources/powerflow", "sources/powerflow-core"] {
             let files = try FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent(dir).path)
             for file in files where file.hasSuffix(".swift") {
                 let text = try String(contentsOf: root.appendingPathComponent(dir).appendingPathComponent(file), encoding: .utf8)

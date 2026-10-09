@@ -1,0 +1,43 @@
+name: Release
+
+# Pushing a tag such as v2.1.8 builds the disk image and publishes the release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check that the tag matches the version in build.sh
+        run: |
+          VERSION=$(sed -n 's/^VERSION="\(.*\)"$/\1/p' build.sh)
+          if [ "v$VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "The tag $GITHUB_REF_NAME does not match build.sh ($VERSION)"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+      - name: Install librsvg
+        run: brew install librsvg
+      - name: Test
+        run: swift test
+      - name: Build the app and the disk image
+        run: ./build.sh --dmg
+      - name: Checksum
+        run: shasum -a 256 "PowerFlow-$VERSION.dmg" > "PowerFlow-$VERSION.dmg.sha256"
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "PowerFlow-$VERSION.dmg" "PowerFlow-$VERSION.dmg.sha256" \
+            --title "PowerFlow $VERSION" \
+            --notes-file ../.github/release-notes.md \
+            --generate-notes

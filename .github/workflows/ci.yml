@@ -8,11 +8,14 @@ on:
 jobs:
   build:
     runs-on: macos-14
+    defaults:
+      run:
+        working-directory: app
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install librsvg
         run: brew install librsvg
       - name: Test
         run: swift test
-      - name: Build the app
-        run: ./build.sh
+      - name: Build the app and the disk image
+        run: ./build.sh --dmg

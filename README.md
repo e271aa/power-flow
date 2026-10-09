@@ -50,9 +50,9 @@ one thing: the flow of power, in watts.
 <div align="center">
 <br>
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/panel-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="assets/panel-light.png">
-  <img alt="The PowerFlow panel while charging: 36.1 W in use, 65 W from the adapter, 28.9 W into the battery, with the split by component and a 2-minute history" src="assets/panel-light.png" width="360">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/panel-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/panel-light.png">
+  <img alt="The PowerFlow panel while charging: 36.1 W in use, 65 W from the adapter, 28.9 W into the battery, with the split by component and a 2-minute history" src="docs/images/panel-light.png" width="360">
 </picture>
 </div>
 
@@ -76,16 +76,16 @@ one thing: the flow of power, in watts.
   <tr>
     <td valign="top" width="50%">
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="assets/assist-dark.png">
-        <source media="(prefers-color-scheme: light)" srcset="assets/assist-light.png">
-        <img alt="The panel with the cable plugged in while the battery helps: the 30 W adapter gives 29.6 W, the Mac needs 41.8 W" src="assets/assist-light.png" width="100%">
+        <source media="(prefers-color-scheme: dark)" srcset="docs/images/assist-dark.png">
+        <source media="(prefers-color-scheme: light)" srcset="docs/images/assist-light.png">
+        <img alt="The panel with the cable plugged in while the battery helps: the 30 W adapter gives 29.6 W, the Mac needs 41.8 W" src="docs/images/assist-light.png" width="100%">
       </picture>
     </td>
     <td valign="top" width="50%">
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="assets/battery-dark.png">
-        <source media="(prefers-color-scheme: light)" srcset="assets/battery-light.png">
-        <img alt="Battery details: 52 %, charging at 28.9 W, health 80 %, 649 cycles, 31.4 °C, USB-C 67 W adapter, full in 1 h 5 min" src="assets/battery-light.png" width="100%">
+        <source media="(prefers-color-scheme: dark)" srcset="docs/images/battery-dark.png">
+        <source media="(prefers-color-scheme: light)" srcset="docs/images/battery-light.png">
+        <img alt="Battery details: 52 %, charging at 28.9 W, health 80 %, 649 cycles, 31.4 °C, USB-C 67 W adapter, full in 1 h 5 min" src="docs/images/battery-light.png" width="100%">
       </picture>
     </td>
   </tr>
@@ -99,9 +99,9 @@ one thing: the flow of power, in watts.
 
 <div align="center">
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/menubar-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="assets/menubar-light.png">
-  <img alt="The six menu bar layouts: battery only, battery and watts, battery without percentage, battery without percentage and watts, icon and watts, watts only" src="assets/menubar-light.png" width="480">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/menubar-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/menubar-light.png">
+  <img alt="The six menu bar layouts: battery only, battery and watts, battery without percentage, battery without percentage and watts, icon and watts, watts only" src="docs/images/menubar-light.png" width="480">
 </picture>
 </div>
 
@@ -113,9 +113,9 @@ it to open the panel; right-click for Settings, About and Quit.
 
 <div align="center">
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/settings-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="assets/settings-light.png">
-  <img alt="Settings, General tab: open at login, language, the six menu bar layouts and the sampling rate" src="assets/settings-light.png" width="480">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/settings-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/settings-light.png">
+  <img alt="Settings, General tab: open at login, language, the six menu bar layouts and the sampling rate" src="docs/images/settings-light.png" width="480">
 </picture>
 </div>
 
@@ -166,38 +166,42 @@ show what your Mac reports.
 | Build | Swift Package Manager and `build.sh`, no Xcode project |
 | Tests | XCTest for the core, plus a self-test that every build runs on the app bundle |
 | App icon | `brand/AppIcon.svg`, rendered with `rsvg-convert` and packed with `iconutil` |
-| Disk image | [`dmgbuild`](https://github.com/dmgbuild/dmgbuild), with the background from `dmg/background.svg` |
-| CI | GitHub Actions on macOS: tests and app build on every push |
+| Disk image | [`dmgbuild`](https://github.com/dmgbuild/dmgbuild), with the background from `app/dmg/background.svg` |
+| CI | GitHub Actions on macOS: tests, app and disk image on every push; a version tag publishes the release |
 
 ## Project structure
 
 ```
 .
-├── Sources/
-│   ├── CSMC/                C bridge to the AppleSMC user client
-│   ├── PowerFlowCore/       Sensors, model, history, alerts and strings (no UI)
-│   └── PowerFlow/           The app: menu bar item, panel and settings (AppKit + SwiftUI)
-├── Tests/PowerFlowCoreTests/  XCTest suite for the core
+├── app/
+│   ├── sources/
+│   │   ├── csmc/            C bridge to the AppleSMC user client
+│   │   ├── powerflow-core/  Sensors, model, history, alerts and strings (no UI)
+│   │   └── powerflow/       The app: menu bar item, panel and settings (AppKit + SwiftUI)
+│   ├── tests/               XCTest suite for the core
+│   ├── dmg/                 Disk image background and layout
+│   ├── Package.swift
+│   └── build.sh             Builds, signs (ad hoc) and checks PowerFlow.app; --dmg also makes the disk image
 ├── brand/                   Logo, symbol and app icon
-├── assets/                  README images, rendered by the app
-├── dmg/                     Disk image background and layout
-├── build.sh                 Builds, signs (ad hoc) and checks PowerFlow.app; --dmg also makes the disk image
-└── .github/workflows/       CI
+├── docs/images/             README images, rendered by the app
+└── .github/                 CI, release workflow and release notes
 ```
 
-All logic that can be tested lives in `PowerFlowCore`. The views in
-`PowerFlow` only present the states they receive.
+All logic that can be tested lives in `PowerFlowCore` (`app/sources/powerflow-core`).
+The views in `PowerFlow` only present the states they receive.
 
 ## Getting started
 
 ### Install from the disk image
 
 <div align="center">
-<img alt="The disk image window: drag PowerFlow onto Applications. If macOS won't open it the first time: System Settings › Privacy & Security › Open Anyway." src="assets/dmg-window.png" width="560">
+<img alt="The disk image window: drag PowerFlow onto Applications. If macOS won't open it the first time: System Settings › Privacy & Security › Open Anyway." src="docs/images/dmg-window.png" width="560">
 </div>
 
-1. Download [`power-flow.dmg`](https://github.com/e271aa/power-flow/releases/latest/download/power-flow.dmg).
-   Every version is on the [Releases](https://github.com/e271aa/power-flow/releases) page.
+1. Download `PowerFlow-<version>.dmg` from the
+   [latest release](https://github.com/e271aa/power-flow/releases/latest).
+   Each release also has a `.sha256` file to check the download with
+   `shasum -a 256 -c PowerFlow-<version>.dmg.sha256`.
 2. Open it and drag **PowerFlow** onto **Applications**.
 3. Open PowerFlow from Applications. It is signed ad hoc and not notarized, so
    the first time macOS will not open it. Go to **System Settings › Privacy &
@@ -222,10 +226,10 @@ Then:
 
 ```bash
 git clone https://github.com/e271aa/power-flow.git
-cd power-flow
+cd power-flow/app
 swift test            # unit tests
 ./build.sh            # builds, signs and self-tests PowerFlow.app
-./build.sh --dmg      # also builds power-flow.dmg
+./build.sh --dmg      # also builds PowerFlow-<version>.dmg
 ```
 
 The first `./build.sh --dmg` installs `dmgbuild` into a virtual environment
@@ -233,8 +237,8 @@ inside `.build/`, so that run needs Python 3 and a network connection.
 
 ## Commands
 
-The app binary doubles as a diagnostic tool. Run these from the repository
-after `./build.sh`; the diagnostic output is in Portuguese.
+The app binary doubles as a diagnostic tool. Run these from `app/` after
+`./build.sh`; the diagnostic output is in Portuguese.
 
 ```bash
 B=PowerFlow.app/Contents/MacOS/PowerFlow

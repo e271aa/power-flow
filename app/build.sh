@@ -9,8 +9,8 @@ cd "$(dirname "$0")"
 
 APP_NAME="PowerFlow"
 BUNDLE="${APP_NAME}.app"
-VERSION="2.1.7"
-ICON_SVG="brand/AppIcon.svg"
+VERSION="2.1.8"
+ICON_SVG="../brand/AppIcon.svg"
 
 echo "==> A compilar (release)"
 swift build -c release 2>&1 | grep -vE "xcrun:|could not determine XCTest|Source files for target" || true
@@ -23,11 +23,11 @@ rm -rf "$BUNDLE"
 mkdir -p "${BUNDLE}/Contents/MacOS" "${BUNDLE}/Contents/Resources"
 cp "$BINARY" "${BUNDLE}/Contents/MacOS/${APP_NAME}"
 
-# Textos PT-PT e EN: a única cópia está em Sources/PowerFlowCore/Resources.
+# Textos PT-PT e EN: a única cópia está em sources/powerflow-core/resources.
 # Na app lêem-se daqui; em `swift run` e nos testes, do bundle de recursos do SwiftPM.
-cp -R Sources/PowerFlowCore/Resources/*.lproj "${BUNDLE}/Contents/Resources/"
+cp -R sources/powerflow-core/resources/*.lproj "${BUNDLE}/Contents/Resources/"
 
-# O ícone da app: o SVG de brand/, exportado nos tamanhos que o `iconutil` pede.
+# O ícone da app: o SVG de ../brand/, exportado nos tamanhos que o `iconutil` pede.
 # Precisa de `rsvg-convert` (brew install librsvg).
 echo "==> A gerar o ícone"
 command -v rsvg-convert >/dev/null || { echo "Falhou: falta o rsvg-convert (brew install librsvg)"; exit 1; }
@@ -73,8 +73,8 @@ echo "==> Auto-verificação"
 
 if [ "${1:-}" = "--dmg" ]; then
     echo "==> A criar o DMG"
-    # Sem a versão no nome: a versão está na app (Acerca do PowerFlow).
-    DMG="power-flow.dmg"
+    # Com a versão no nome, como os anexos das Releases.
+    DMG="${APP_NAME}-${VERSION}.dmg"
     # A janela desenhada (fundo, ícones no sítio, sem barras) vem do dmgbuild,
     # que escreve a disposição do Finder sem o abrir. Instala-se uma vez num
     # ambiente próprio dentro de .build/.
