@@ -78,6 +78,7 @@ enum MenuBarIcon {
         case .battery: 25.5
         case .batteryWatts: wattsX + slot(wattsFont)
         case .watts: slot(wattsOnlyFont)
+        case .flowWatts: flowWattsX + slot(wattsOnlyFont)
         }
         return width.rounded(.up)
     }
@@ -145,6 +146,77 @@ enum MenuBarIcon {
             let offset = centeringOffset(contentStart: 0, text: watts, font: wattsOnlyFont,
                                          imageWidth: width(for: .watts))
             drawText(watts, font: wattsOnlyFont, x: offset, centerY: height / 2, color: color)
+        case .flowWatts:
+            let offset = centeringOffset(contentStart: flowWattsX, text: watts, font: wattsOnlyFont,
+                                         imageWidth: width(for: .flowWatts))
+            NSGraphicsContext.saveGraphicsState()
+            let shift = NSAffineTransform()
+            shift.translateX(by: offset, yBy: (height - flowSize.height) / 2)
+            shift.concat()
+            drawFlow(state: item.reading == .unavailable ? .unavailable : item.isOnBattery ? .onBattery : .pluggedIn,
+                     color: color)
+            NSGraphicsContext.restoreGraphicsState()
+            drawText(watts, font: wattsOnlyFont, x: offset + flowWattsX, centerY: height / 2, color: color)
+        }
+    }
+
+    // MARK: - Ícone da app
+
+    /// O ícone da app reduzido aos três nós do diagrama, como o item da barra
+    /// da 2.0: 17 × 15 pt. Com o cabo, o nó do adaptador é cheio; em bateria,
+    /// vazado; sem leitura dos sensores, os três vazados.
+    enum FlowState { case pluggedIn, onBattery, unavailable }
+
+    private static let flowSize = NSSize(width: 17, height: 15)
+    /// Os watts a 5 pt do ícone, no tamanho do texto da barra.
+    private static let flowWattsX: CGFloat = 22
+
+    private static func drawFlow(state: FlowState, color: NSColor) {
+        let radius: CGFloat = 2.3
+        let systemRadius: CGFloat = 2.6
+        let lineWidth: CGFloat = 1.4
+        let adapter = NSPoint(x: 3.0, y: 10.6)
+        let system = NSPoint(x: 14.0, y: 10.6)
+        let battery = NSPoint(x: 8.5, y: 3.6)
+
+        color.setStroke()
+        color.setFill()
+
+        // As arestas primeiro, para os nós assentarem por cima delas.
+        let edges = NSBezierPath()
+        edges.move(to: adapter)
+        edges.line(to: system)
+        edges.move(to: adapter)
+        edges.line(to: battery)
+        edges.move(to: battery)
+        edges.line(to: system)
+        edges.lineWidth = lineWidth
+        edges.lineCapStyle = .round
+        edges.lineJoinStyle = .round
+        edges.stroke()
+
+        let isUnavailable = state == .unavailable
+        node(at: system, radius: systemRadius, filled: !isUnavailable, lineWidth: lineWidth)
+        node(at: battery, radius: radius, filled: !isUnavailable, lineWidth: lineWidth)
+        node(at: adapter, radius: radius, filled: state == .pluggedIn, lineWidth: lineWidth)
+    }
+
+    private static func node(at center: NSPoint, radius: CGFloat, filled: Bool, lineWidth: CGFloat) {
+        let rect = NSRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
+        // Um nó vazado abre espaço na aresta que passa por baixo, senão a linha
+        // atravessa-lhe o interior e o vazio não se lê.
+        if !filled {
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current?.compositingOperation = .clear
+            NSBezierPath(ovalIn: rect.insetBy(dx: -lineWidth * 0.3, dy: -lineWidth * 0.3)).fill()
+            NSGraphicsContext.restoreGraphicsState()
+        }
+        let circle = NSBezierPath(ovalIn: filled ? rect : rect.insetBy(dx: lineWidth / 2, dy: lineWidth / 2))
+        if filled {
+            circle.fill()
+        } else {
+            circle.lineWidth = lineWidth
+            circle.stroke()
         }
     }
 

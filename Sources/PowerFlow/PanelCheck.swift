@@ -199,6 +199,12 @@ extension StatusItemController {
             check(bar?.content == (hasBattery ? .batteryWatts : .watts)
                   && self.barLength == MenuBarIcon.itemLength(for: bar?.content ?? .watts) && self.barLength <= 72,
                   "Definições: «Bateria e watts» mostra «\(bar?.wattsText() ?? "")» ao lado da bateria (\(self.barLength) pt)")
+            defaults.set("flowWatts", forKey: AppSettings.barModeKey)
+        }
+        after(navigated + 5.6) {
+            let bar = self.shownBar
+            check(bar?.content == .flowWatts && self.barLength == MenuBarIcon.itemLength(for: .flowWatts),
+                  "Definições: «Ícone e watts» mostra o ícone da app e «\(bar?.wattsText() ?? "")» (\(self.barLength) pt)")
             if let savedRate { defaults.set(savedRate, forKey: AppSettings.sampleRateKey) } else { defaults.removeObject(forKey: AppSettings.sampleRateKey) }
             if let savedMode { defaults.set(savedMode, forKey: AppSettings.barModeKey) } else { defaults.removeObject(forKey: AppSettings.barModeKey) }
         }

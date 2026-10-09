@@ -201,6 +201,7 @@ private struct BarModeTile: View {
         case .batteryWatts: "s_bar_bw"
         case .batteryPlain: "s_bar_plain"
         case .batteryPlainWatts: "s_bar_plain_w"
+        case .flowWatts: "s_bar_flow_w"
         case .watts: "s_bar_w"
         }
         return L10n.string(key)

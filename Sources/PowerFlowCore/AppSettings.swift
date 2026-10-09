@@ -3,11 +3,13 @@ import Foundation
 /// O que o item da barra de menus mostra. Guardado em `pf.barMode`.
 public enum BarMode: String, CaseIterable, Sendable {
     /// Pela ordem dos mosaicos das Definições.
-    case battery, batteryWatts, batteryPlain, batteryPlainWatts, watts
+    case battery, batteryWatts, batteryPlain, batteryPlainWatts, flowWatts, watts
 
     public static let `default` = BarMode.batteryWatts
 
-    public var showsBattery: Bool { self != .watts }
+    /// Desenha a bateria. «Ícone e watts» e «Só watts» não a desenham, por
+    /// isso servem também um Mac sem bateria.
+    public var showsBattery: Bool { self != .watts && self != .flowWatts }
 
     /// A percentagem dentro da bateria. Sem ela, a bateria fica como a do
     /// sistema com «Mostrar percentagem» desligado.

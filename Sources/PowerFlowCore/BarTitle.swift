@@ -10,6 +10,8 @@ public struct BarItem: Hashable, Sendable {
     /// cai em «Só watts» (o valor guardado não muda).
     public enum Content: Hashable, Sendable {
         case battery, batteryWatts, watts
+        /// O ícone da app (os três nós do diagrama) e os watts.
+        case flowWatts
     }
 
     /// A leitura do consumo que o item mostra.
@@ -34,12 +36,17 @@ public struct BarItem: Hashable, Sendable {
     /// a carga em pausa (medido na barra, aos 80 % em pausa).
     public let showsBolt: Bool
     public let hasBattery: Bool
+    /// A energia vem da bateria (sem o cabo). No ícone da app, o nó do
+    /// adaptador fica vazado.
+    public let isOnBattery: Bool
     public var reading: Reading
 
     /// Um item com valores fixos: os mosaicos das Definições e a pré-visualização.
     public init(content: Content, percent: Int, isCharging: Bool, showsBolt: Bool? = nil,
-                showsPercent: Bool = true, hasBattery: Bool = true, reading: Reading) {
+                showsPercent: Bool = true, hasBattery: Bool = true, isOnBattery: Bool = false,
+                reading: Reading) {
         self.content = content
+        self.isOnBattery = isOnBattery
         self.percent = min(max(percent, 0), 100)
         self.showsPercent = showsPercent
         self.isCharging = isCharging
@@ -49,11 +56,12 @@ public struct BarItem: Hashable, Sendable {
     }
 
     public static func content(mode: BarMode, hasBattery: Bool) -> Content {
+        if mode == .flowWatts { return .flowWatts }
         guard hasBattery else { return .watts }
         switch mode {
         case .battery, .batteryPlain: return .battery
         case .batteryWatts, .batteryPlainWatts: return .batteryWatts
-        case .watts: return .watts
+        case .watts, .flowWatts: return .watts
         }
     }
 
@@ -65,6 +73,7 @@ public struct BarItem: Hashable, Sendable {
         showsPercent = mode.showsPercent
         isCharging = battery.isPresent && battery.isCharging && snapshot.source == .adapter
         showsBolt = battery.isPresent && snapshot.source == .adapter
+        isOnBattery = snapshot.source == .battery
         reading = Self.reading(snapshot: snapshot, sensorsAvailable: sensorsAvailable)
     }
 

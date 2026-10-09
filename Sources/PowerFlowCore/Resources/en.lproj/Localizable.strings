@@ -164,8 +164,9 @@
 "s_bar" = "Menu bar";
 "s_bar_battery" = "Battery only";
 "s_bar_bw" = "Battery and watts";
-"s_bar_plain" = "Battery without %";
-"s_bar_plain_w" = "Battery without % and watts";
+"s_bar_plain" = "Battery without %";
+"s_bar_plain_w" = "Battery without % and watts";
+"s_bar_flow_w" = "Icon and watts";
 "s_bar_w" = "Watts only";
 "s_measure" = "Measurement";
 "s_rate" = "Sampling rate";

@@ -164,8 +164,9 @@
 "s_bar" = "Barra de menus";
 "s_bar_battery" = "Só bateria";
 "s_bar_bw" = "Bateria e watts";
-"s_bar_plain" = "Bateria sem %";
-"s_bar_plain_w" = "Bateria sem % e watts";
+"s_bar_plain" = "Bateria sem %";
+"s_bar_plain_w" = "Bateria sem % e watts";
+"s_bar_flow_w" = "Ícone e watts";
 "s_bar_w" = "Só watts";
 "s_measure" = "Medição";
 "s_rate" = "Frequência de amostragem";

@@ -39,6 +39,13 @@ enum IconPreview {
         all.append(Case(label: "Bateria sem % e watts · 20 % com cabo",
                         item: BarItem(content: .batteryWatts, percent: 20, isCharging: true, showsPercent: false,
                                       reading: .watts(15))))
+        all.append(Case(label: "Ícone e watts · com cabo",
+                        item: BarItem(content: .flowWatts, percent: 80, isCharging: false, reading: .watts(15))))
+        all.append(Case(label: "Ícone e watts · em bateria",
+                        item: BarItem(content: .flowWatts, percent: 80, isCharging: false, isOnBattery: true,
+                                      reading: .watts(15))))
+        all.append(Case(label: "Ícone e watts · sem leitura",
+                        item: BarItem(content: .flowWatts, percent: 80, isCharging: false, reading: .unavailable)))
         all.append(Case(label: "Só watts · 15 W",
                         item: BarItem(content: .watts, percent: 80, isCharging: false, reading: .watts(15))))
         all.append(Case(label: "Mac sem bateria · 120 W",
@@ -129,7 +136,7 @@ enum IconPreview {
     static func widthReport() -> String {
         var lines = ["Larguras (pt):"]
         var ok = true
-        for content in [BarItem.Content.battery, .batteryWatts, .watts] {
+        for content in [BarItem.Content.battery, .batteryWatts, .flowWatts, .watts] {
             let item = MenuBarIcon.itemLength(for: content)
             lines.append(String(format: "  %@: imagem %.1f, item %.1f", "\(content)",
                                 MenuBarIcon.width(for: content), item))

@@ -79,8 +79,8 @@ final class SettingsTests: XCTestCase {
     }
 
     func testOsCincoModos() {
-        XCTAssertEqual(BarMode.allCases, [.battery, .batteryWatts, .batteryPlain, .batteryPlainWatts, .watts],
-                       "a ordem dos mosaicos")
+        XCTAssertEqual(BarMode.allCases, [.battery, .batteryWatts, .batteryPlain, .batteryPlainWatts,
+                                          .flowWatts, .watts], "a ordem dos mosaicos")
         XCTAssertEqual(BarItem.content(mode: .battery, hasBattery: true), .battery)
         XCTAssertEqual(BarItem.content(mode: .batteryWatts, hasBattery: true), .batteryWatts)
         XCTAssertEqual(BarItem.content(mode: .batteryPlain, hasBattery: true), .battery)
@@ -89,6 +89,19 @@ final class SettingsTests: XCTestCase {
         XCTAssertTrue(BarMode.battery.showsBattery)
         XCTAssertTrue(BarMode.batteryPlain.showsBattery)
         XCTAssertFalse(BarMode.watts.showsBattery, "«Só watts» não tem bateria")
+    }
+
+    /// «Ícone e watts»: o ícone da app ao lado dos watts, também num Mac sem bateria.
+    func testOIconeDaAppEOsWatts() {
+        XCTAssertEqual(item(snapshot(watts: 15), mode: .flowWatts).content, .flowWatts)
+        XCTAssertEqual(item(snapshot(watts: 9, battery: false), mode: .flowWatts).content, .flowWatts,
+                       "num Mac sem bateria o ícone também serve")
+        XCTAssertFalse(BarMode.flowWatts.showsBattery)
+        XCTAssertFalse(item(snapshot(watts: 15), mode: .flowWatts).isOnBattery, "com o cabo")
+        XCTAssertTrue(item(snapshot(watts: 15, plugged: false), mode: .flowWatts).isOnBattery, "em bateria")
+        XCTAssertFalse(item(snapshot(watts: 9, battery: false), mode: .flowWatts).isOnBattery,
+                       "sem bateria, a energia vem sempre da corrente")
+        XCTAssertEqual(item(snapshot(watts: nil), mode: .flowWatts).reading, .unavailable)
     }
 
     /// «Bateria sem %»: a bateria sem algarismos; a dica e o VoiceOver dizem a percentagem na mesma.
@@ -103,8 +116,9 @@ final class SettingsTests: XCTestCase {
     }
 
     /// E4: num Mac sem bateria não se desenha bateria, em nenhum modo.
+    /// Os modos que desenham a bateria caem nos watts; o ícone da app fica.
     func testSemBateriaTudoCaiNosWatts() {
-        for mode in BarMode.allCases {
+        for mode in BarMode.allCases where mode.showsBattery || mode == .watts {
             XCTAssertEqual(item(snapshot(watts: 9, battery: false), mode: mode).content, .watts, "\(mode)")
         }
         XCTAssertFalse(item(snapshot(watts: 9, battery: false, charging: true)).isCharging)
